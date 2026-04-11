@@ -1,0 +1,196 @@
+// ── Members ────────────────────────────────────────────────────────────────
+export interface Member {
+  id: string;
+  name: string;
+  color: string;
+  avatar_url: string | null;
+  supabase_user_id: string | null;
+  created_at: string;
+}
+
+// ── Photos (lock screen slideshow) ─────────────────────────────────────────
+export interface Photo {
+  id: string;
+  url: string;
+  storage_path: string;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
+// ── Chores ─────────────────────────────────────────────────────────────────
+export type RecurrenceRule = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+
+export interface Chore {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  recurrence_rule: RecurrenceRule;
+  rotation_enabled: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ChoreAssignment {
+  id: string;
+  chore_id: string;
+  member_id: string;
+  rotation_order: number;
+}
+
+export interface ChoreCompletion {
+  id: string;
+  chore_id: string;
+  completed_by: string;
+  scheduled_date: string;   // ISO date string YYYY-MM-DD
+  completed_at: string | null;
+}
+
+// ── Calendar ───────────────────────────────────────────────────────────────
+export type CalendarEventType = 'chore' | 'reminder' | 'bill';
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start_time: string;   // ISO datetime
+  end_time: string | null;
+  type: CalendarEventType;
+  linked_id: string | null;
+  member_id: string | null;
+  color?: string;
+}
+
+// ── Reminders ──────────────────────────────────────────────────────────────
+export interface Reminder {
+  id: string;
+  title: string;
+  body: string | null;
+  due_at: string;           // ISO datetime
+  is_recurring: boolean;
+  recurrence_rule: RecurrenceRule;
+  member_id: string | null;
+  created_at: string;
+}
+
+// ── Shopping ───────────────────────────────────────────────────────────────
+export interface ShoppingList {
+  id: string;
+  name: string;
+  store_category: string | null;
+  color: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ShoppingItem {
+  id: string;
+  list_id: string;
+  name: string;
+  category: string | null;
+  quantity: string | null;
+  checked: boolean;
+  checked_by: string | null;
+  checked_at: string | null;
+  created_at: string;
+}
+
+// ── Notes ──────────────────────────────────────────────────────────────────
+export interface Note {
+  id: string;
+  content: string;
+  color: string;
+  author_id: string | null;
+  is_shared: boolean;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Finance ────────────────────────────────────────────────────────────────
+export type BillType = 'fixed' | 'variable';
+export type AccountType = 'checking' | 'savings' | 'credit' | 'cash';
+export type CategoryType = 'expense' | 'income' | 'both';
+export type BillStatus = 'paid' | 'pending';
+
+export interface FinCategory {
+  id: string;
+  name: string;
+  icon: string;
+  type: CategoryType;
+  subcategories: { id: string; name: string }[];
+}
+
+export interface FinAccount {
+  id: string;
+  name: string;
+  type: AccountType;
+  owner_id: string | null;
+  balance: number;
+}
+
+export interface BillSplit {
+  person_id: string;
+  type: 'equal' | 'percent' | 'amount';
+  value: number;
+}
+
+export interface FinBill {
+  id: string;
+  name: string;
+  base_amount: number;
+  type: BillType;
+  category_id: string | null;
+  account_id: string | null;
+  due_day: number | null;
+  auto_pay: boolean;
+  splits: BillSplit[];
+  created_at: string;
+}
+
+export interface FinIncome {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  type: string;
+  is_shared: boolean;
+  person_id: string | null;
+  shared_people: string[];
+  account_id: string | null;
+  created_at: string;
+}
+
+export interface FinBudget {
+  id: string;
+  name: string;
+  limit_amount: number;
+  category_id: string | null;
+  color: string;
+  icon: string;
+  created_at: string;
+}
+
+export interface FinOverride {
+  id: string;
+  bill_id: string;
+  month_key: string;      // YYYY-MM
+  amount: number | null;
+  splits: BillSplit[] | null;
+  status: BillStatus | null;
+}
+
+// ── UI / App state ─────────────────────────────────────────────────────────
+export type AppPage =
+  | 'dashboard'
+  | 'calendar'
+  | 'chores'
+  | 'shopping'
+  | 'reminders'
+  | 'finance'
+  | 'notes'
+  | 'members';
+
+export type Theme = 'dark' | 'light';

@@ -1,0 +1,49 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px - 60px); /* viewport - topbar - bottom nav */
+  overflow: hidden;
+  gap: var(--sp-4);
+}
+
+@media (min-width: 1024px) {
+  .root { height: calc(100vh - 64px); } /* no bottom nav on desktop */
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.navGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1;
+}
+
+.title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.viewToggle {
+  display: flex;
+  gap: var(--sp-1);
+  background: var(--bg-3);
+  border-radius: var(--r-sm);
+  padding: 2px;
+}
+
+.viewToggle .btn {
+  border-radius: var(--r-sm);
+}
+
+.body {
+  flex: 1;
+  overflow: hidden;
+}

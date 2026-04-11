@@ -1,0 +1,101 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   HomeHub — Design Tokens
+   Imported by global.css — never imported directly by components.
+──────────────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="dark"] {
+  /* Surface */
+  --bg:           #0f0f11;
+  --bg-2:         #18181c;
+  --bg-3:         #222228;
+  --border:       #2e2e38;
+  --border-focus: #5b5bf6;
+
+  /* Text */
+  --text:         #f0f0f5;
+  --text-2:       #9090a8;
+  --text-3:       #606078;
+
+  /* Brand / accent */
+  --accent:       #5b5bf6;
+  --accent-hover: #4a4ae0;
+  --accent-dim:   rgba(91, 91, 246, 0.15);
+
+  /* Semantic colours */
+  --success:      #22c55e;
+  --warning:      #f59e0b;
+  --danger:       #ef4444;
+  --info:         #38bdf8;
+
+  /* Module colours */
+  --color-calendar:  #818cf8;
+  --color-chores:    #34d399;
+  --color-shopping:  #fb923c;
+  --color-reminders: #f472b6;
+  --color-finance:   #4ade80;
+  --color-notes:     #facc15;
+  --color-members:   #60a5fa;
+
+  /* Shadows */
+  --shadow-sm:    0 1px 3px rgba(0,0,0,.4);
+  --shadow-md:    0 4px 12px rgba(0,0,0,.5);
+  --shadow-lg:    0 8px 32px rgba(0,0,0,.6);
+
+  /* Radius */
+  --r-sm:  6px;
+  --r-md:  12px;
+  --r-lg:  20px;
+  --r-xl:  28px;
+  --r-full: 9999px;
+
+  /* Spacing scale */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* Typography */
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-md:   17px;
+  --text-lg:   20px;
+  --text-xl:   24px;
+  --text-2xl:  32px;
+  --text-3xl:  42px;
+
+  /* Z-index layers */
+  --z-base:    1;
+  --z-overlay: 100;
+  --z-modal:   200;
+  --z-top:     300;
+
+  /* Transitions */
+  --transition: 150ms ease;
+  --transition-slow: 300ms ease;
+}
+
+[data-theme="light"] {
+  --bg:           #f5f5f8;
+  --bg-2:         #ffffff;
+  --bg-3:         #ebebf0;
+  --border:       #d8d8e4;
+  --border-focus: #5b5bf6;
+
+  --text:         #111118;
+  --text-2:       #50506a;
+  --text-3:       #9090a8;
+
+  --shadow-sm:    0 1px 3px rgba(0,0,0,.08);
+  --shadow-md:    0 4px 12px rgba(0,0,0,.1);
+  --shadow-lg:    0 8px 32px rgba(0,0,0,.14);
+}

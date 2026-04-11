@@ -1,0 +1,103 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-bottom: var(--sp-4);
+}
+
+.heading {
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+/* The infinite canvas */
+.board {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background-image:
+    radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Sticky note card */
+.note {
+  position: absolute;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  cursor: grab;
+  user-select: none;
+  transition: box-shadow var(--transition);
+}
+
+.note:active { cursor: grabbing; box-shadow: var(--shadow-lg); }
+
+.noteHandle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+}
+
+.noteGrip {
+  font-size: 14px;
+  color: rgba(0,0,0,.35);
+  letter-spacing: -2px;
+}
+
+.noteDelete {
+  font-size: var(--text-xs);
+  color: rgba(0,0,0,.4);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.noteDelete:hover { color: rgba(0,0,0,.8); background: rgba(0,0,0,.1); }
+
+.noteText {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: rgba(0,0,0,.8);
+  cursor: text;
+  user-select: text;
+  min-height: 100px;
+  line-height: 1.5;
+}
+
+.noteText::placeholder { color: rgba(0,0,0,.4); }
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  color: var(--text-3);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}

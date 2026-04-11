@@ -1,0 +1,154 @@
+.root {
+  display: flex;
+  gap: var(--sp-6);
+  height: 100%;
+}
+
+/* Sidebar with list tabs */
+.sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-2);
+}
+
+.sidebarTitle {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-3);
+}
+
+.listTabWrapper {
+  display: flex;
+  align-items: center;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.listTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition), color var(--transition);
+  border-radius: var(--r-sm) 0 0 var(--r-sm);
+}
+
+.listTab:hover { background: var(--bg-3); color: var(--text); }
+.listTabActive { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+
+.listDot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.listDelete {
+  padding: var(--sp-2) var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.listTabWrapper:hover .listDelete { opacity: 1; }
+.listDelete:hover { color: var(--danger); }
+
+/* Main content area */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  overflow-y: auto;
+}
+
+.listName {
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.addRow {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.itemList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.itemRow:hover { background: var(--bg-3); }
+
+.itemCheck {
+  width: 22px; height: 22px;
+  border-radius: var(--r-full);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.itemCheckDone {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
+.itemName { font-size: var(--text-sm); flex: 1; }
+.itemNameDone { text-decoration: line-through; color: var(--text-3); }
+
+.sectionLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-3);
+  letter-spacing: .08em;
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+/* Mobile: stack vertically */
+@media (max-width: 640px) {
+  .root { flex-direction: column; gap: var(--sp-4); }
+  .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; gap: var(--sp-2); }
+  .listTabWrapper { width: auto; }
+}
