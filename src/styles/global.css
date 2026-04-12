@@ -40,18 +40,34 @@ img, svg { display: block; max-width: 100%; }
   background: var(--bg);
 }
 
-/* Sidebar — visible on tablet/desktop */
+/* Sidebar — hidden by default, slides in as overlay */
 .sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
   width: 220px;
-  flex-shrink: 0;
   background: var(--bg-2);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   padding: var(--sp-5) 0;
   overflow-y: auto;
+  transform: translateX(-100%);
   transition: transform var(--transition-slow);
   z-index: var(--z-overlay);
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+/* Backdrop behind open sidebar */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .4);
+  z-index: calc(var(--z-overlay) - 1);
 }
 
 /* Main content area */
@@ -287,8 +303,6 @@ img, svg { display: block; max-width: 100%; }
 
 /* ─── Responsive breakpoints ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .sidebar { display: none; }
-
   .bottom-nav {
     display: flex;
     align-items: stretch;

@@ -1,229 +1,129 @@
 import { useEffect, useState } from 'react';
 import type { ShoppingList, ShoppingItem } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { useShoppingStore } from '../../store/shoppingStore';
 import { useAuthStore } from '../../store/authStore';
 import { subscribeToTable } from '../../lib/realtime';
-import { createBroadcastChannel } from '../../lib/broadcast';
-import { uid } from '../../lib/utils';
+import ShoppingCard from './ShoppingCard';
 import styles from './ShoppingPage.module.css';
 
-const bc = createBroadcastChannel<unknown>('shopping');
+const LIST_COLORS = ['#fb923c', '#60a5fa', '#34d399', '#f472b6', '#facc15', '#818cf8', '#38bdf8', '#ef4444'];
 
 export default function ShoppingPage() {
+  const { lists, items, fetchAll, addList } = useShoppingStore();
   const { activeMember } = useAuthStore();
-  const [lists, setLists] = useState<ShoppingList[]>([]);
-  const [activeListId, setActiveListId] = useState<string | null>(null);
-  const [items, setItems] = useState<ShoppingItem[]>([]);
-  const [newListName, setNewListName] = useState('');
-  const [newItemName, setNewItemName] = useState('');
-  const [showAddList, setShowAddList] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState(LIST_COLORS[0]);
 
-  const activeList = lists.find((l) => l.id === activeListId);
-  const activeItems = items.filter((i) => i.list_id === activeListId);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Load lists
+  // Cross-device Realtime sync
   useEffect(() => {
-    supabase.from('shopping_lists').select('*').order('name').then(({ data }) => {
-      const l = (data ?? []) as ShoppingList[];
-      setLists(l);
-      if (l.length > 0 && !activeListId) setActiveListId(l[0].id);
-    });
-  }, []);
-
-  // Load items when active list changes
-  useEffect(() => {
-    if (!activeListId) return;
-    supabase
-      .from('shopping_items')
-      .select('*')
-      .eq('list_id', activeListId)
-      .order('created_at')
-      .then(({ data }) => setItems((data ?? []) as ShoppingItem[]));
-  }, [activeListId]);
-
-  // Realtime subscriptions
-  useEffect(() => {
-    const unsub1 = subscribeToTable<ShoppingItem>({
-      table: 'shopping_items',
-      onData: ({ eventType, new: row, old }) => {
-        if (eventType === 'INSERT' && row) setItems((prev) => [...prev.filter((i) => i.id !== row.id), row]);
-        if (eventType === 'UPDATE' && row) setItems((prev) => prev.map((i) => i.id === row.id ? row : i));
-        if (eventType === 'DELETE' && old) setItems((prev) => prev.filter((i) => i.id !== old.id));
-      },
-    });
-    const unsub2 = subscribeToTable<ShoppingList>({
+    const unsubLists = subscribeToTable<ShoppingList>({
       table: 'shopping_lists',
       onData: ({ eventType, new: row, old }) => {
-        if (eventType === 'INSERT' && row) setLists((prev) => [...prev.filter((l) => l.id !== row.id), row]);
-        if (eventType === 'DELETE' && old) setLists((prev) => prev.filter((l) => l.id !== old.id));
+        const store = useShoppingStore.getState();
+        if (eventType === 'INSERT' && row && !store.lists.find((l) => l.id === row.id)) {
+          store.setLists([...store.lists, row]);
+        } else if (eventType === 'UPDATE' && row) {
+          store.setLists(store.lists.map((l) => (l.id === row.id ? row : l)));
+        } else if (eventType === 'DELETE' && old) {
+          store.setLists(store.lists.filter((l) => l.id !== old.id));
+          store.setItems(store.items.filter((i) => i.list_id !== old.id));
+        }
       },
     });
-    const unsubBc = bc.listen((msg) => {
-      if (msg.type === 'ITEM_TOGGLED') {
-        const { id, checked, checked_by, checked_at } = msg.payload as ShoppingItem;
-        setItems((prev) => prev.map((i) => i.id === id ? { ...i, checked, checked_by, checked_at } : i));
-      }
+
+    const unsubItems = subscribeToTable<ShoppingItem>({
+      table: 'shopping_items',
+      onData: ({ eventType, new: row, old }) => {
+        const store = useShoppingStore.getState();
+        if (eventType === 'INSERT' && row && !store.items.find((i) => i.id === row.id)) {
+          store.setItems([...store.items, row]);
+        } else if (eventType === 'UPDATE' && row) {
+          store.setItems(store.items.map((i) => (i.id === row.id ? row : i)));
+        } else if (eventType === 'DELETE' && old) {
+          store.setItems(store.items.filter((i) => i.id !== old.id));
+        }
+      },
     });
-    return () => { unsub1(); unsub2(); unsubBc(); };
+
+    return () => { unsubLists(); unsubItems(); };
   }, []);
 
-  async function addList() {
-    if (!newListName.trim()) return;
-    const list: ShoppingList = {
-      id: uid(), name: newListName.trim(),
-      store_category: null, color: '#fb923c',
+  async function handleAddList(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    await addList({
+      name: newName.trim(),
+      color: newColor,
+      store_category: null,
+      is_featured: false,
       created_by: activeMember?.id ?? null,
-      created_at: new Date().toISOString(),
-    };
-    setLists((prev) => [...prev, list]);
-    setActiveListId(list.id);
-    setNewListName('');
-    setShowAddList(false);
-    await supabase.from('shopping_lists').insert(list);
+    });
+    setNewName('');
+    setNewColor(LIST_COLORS[0]);
+    setShowForm(false);
   }
-
-  async function addItem() {
-    if (!newItemName.trim() || !activeListId) return;
-    const item: ShoppingItem = {
-      id: uid(), list_id: activeListId,
-      name: newItemName.trim(), category: null, quantity: null,
-      checked: false, checked_by: null, checked_at: null,
-      created_at: new Date().toISOString(),
-    };
-    setItems((prev) => [...prev, item]);
-    setNewItemName('');
-    await supabase.from('shopping_items').insert(item);
-    bc.post('ITEM_ADDED', item);
-  }
-
-  async function toggleItem(item: ShoppingItem) {
-    const now = new Date().toISOString();
-    const updated: ShoppingItem = {
-      ...item,
-      checked: !item.checked,
-      checked_by: !item.checked ? (activeMember?.id ?? null) : null,
-      checked_at: !item.checked ? now : null,
-    };
-    setItems((prev) => prev.map((i) => i.id === item.id ? updated : i));
-    await supabase.from('shopping_items').update({
-      checked: updated.checked, checked_by: updated.checked_by, checked_at: updated.checked_at,
-    }).eq('id', item.id);
-    bc.post('ITEM_TOGGLED', updated);
-  }
-
-  async function deleteList(listId: string) {
-    if (!confirm('Delete this list and all its items?')) return;
-    setLists((prev) => prev.filter((l) => l.id !== listId));
-    setItems((prev) => prev.filter((i) => i.list_id !== listId));
-    if (activeListId === listId) setActiveListId(lists.find((l) => l.id !== listId)?.id ?? null);
-    await supabase.from('shopping_items').delete().eq('list_id', listId);
-    await supabase.from('shopping_lists').delete().eq('id', listId);
-  }
-
-  const unchecked = activeItems.filter((i) => !i.checked);
-  const checked = activeItems.filter((i) => i.checked);
 
   return (
     <div className={styles.root}>
-      {/* Lists sidebar */}
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarHeader}>
-          <span className={styles.sidebarTitle}>Lists</span>
-          <button className="btn btn--ghost btn--icon" onClick={() => setShowAddList(true)} title="New list">+</button>
-        </div>
+      <div className={styles.header}>
+        <h2 className={styles.heading}>Shopping</h2>
+        <button className="btn btn--primary" onClick={() => setShowForm((v) => !v)}>
+          + New list
+        </button>
+      </div>
 
-        {showAddList && (
-          <div style={{ display: 'flex', gap: 'var(--sp-2)', padding: 'var(--sp-2)' }}>
-            <input
-              className="input"
-              placeholder="List name…"
-              value={newListName}
-              onChange={(e) => setNewListName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addList()}
-              autoFocus
-            />
-            <button className="btn btn--primary btn--sm" onClick={addList}>Add</button>
-          </div>
-        )}
-
-        {lists.map((list) => (
-          <div key={list.id} className={styles.listTabWrapper}>
-            <button
-              className={`${styles.listTab} ${activeListId === list.id ? styles.listTabActive : ''}`}
-              onClick={() => setActiveListId(list.id)}
-            >
-              <span className={styles.listDot} style={{ background: list.color }} />
-              {list.name}
-            </button>
-            <button
-              className={styles.listDelete}
-              onClick={() => deleteList(list.id)}
-              title="Delete list"
-            >✕</button>
-          </div>
-        ))}
-      </aside>
-
-      {/* Items area */}
-      <main className={styles.main}>
-        {activeList ? (
-          <>
-            <h2 className={styles.listName}>{activeList.name}</h2>
-
-            {/* Add item input */}
-            <div className={styles.addRow}>
-              <input
-                className="input"
-                placeholder="Add item…"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addItem()}
+      {showForm && (
+        <form className={styles.newListForm} onSubmit={handleAddList}>
+          <input
+            className="input"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="List name…"
+            autoFocus
+            required
+          />
+          <div className={styles.colorRow}>
+            {LIST_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={styles.colorSwatch}
+                style={{
+                  background: c,
+                  outline: newColor === c ? '3px solid var(--text)' : '3px solid transparent',
+                  outlineOffset: 2,
+                }}
+                onClick={() => setNewColor(c)}
               />
-              <button className="btn btn--primary" onClick={addItem}>Add</button>
-            </div>
-
-            {/* Unchecked items */}
-            <div className={styles.itemList}>
-              {unchecked.map((item) => (
-                <ItemRow key={item.id} item={item} onToggle={toggleItem} />
-              ))}
-            </div>
-
-            {/* Checked items */}
-            {checked.length > 0 && (
-              <>
-                <p className={styles.sectionLabel}>Checked off ({checked.length})</p>
-                <div className={styles.itemList}>
-                  {checked.map((item) => (
-                    <ItemRow key={item.id} item={item} onToggle={toggleItem} />
-                  ))}
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <div style={{ textAlign: 'center', color: 'var(--text-3)', paddingTop: 80 }}>
-            <div style={{ fontSize: 48 }}>🛒</div>
-            <p style={{ marginTop: 'var(--sp-4)' }}>Create a list to get started.</p>
+            ))}
           </div>
-        )}
-      </main>
-    </div>
-  );
-}
+          <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+            <button type="submit" className="btn btn--primary btn--sm">Create</button>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={() => setShowForm(false)}>Cancel</button>
+          </div>
+        </form>
+      )}
 
-function ItemRow({ item, onToggle }: { item: ShoppingItem; onToggle: (i: ShoppingItem) => void }) {
-  return (
-    <div
-      className={styles.itemRow}
-      onClick={() => onToggle(item)}
-    >
-      <span className={`${styles.itemCheck} ${item.checked ? styles.itemCheckDone : ''}`}>
-        {item.checked ? '✓' : ''}
-      </span>
-      <span className={`${styles.itemName} ${item.checked ? styles.itemNameDone : ''}`}>
-        {item.name}
-      </span>
+      {lists.length === 0 ? (
+        <div className={styles.empty}>
+          <div style={{ fontSize: 48 }}>🛒</div>
+          <p>No lists yet. Create one to get started.</p>
+        </div>
+      ) : (
+        <div className={styles.grid}>
+          {lists.map((list) => (
+            <ShoppingCard
+              key={list.id}
+              list={list}
+              items={items.filter((i) => i.list_id === list.id)}
+              allItems={items}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ export interface Member {
   name: string;
   color: string;
   avatar_url: string | null;
+  pin?: string | null;
   supabase_user_id: string | null;
   created_at: string;
 }
@@ -26,7 +27,6 @@ export interface Chore {
   description: string | null;
   category: string | null;
   recurrence_rule: RecurrenceRule;
-  rotation_enabled: boolean;
   created_by: string | null;
   created_at: string;
 }
@@ -65,7 +65,9 @@ export interface Reminder {
   id: string;
   title: string;
   body: string | null;
-  due_at: string;           // ISO datetime
+  due_at: string;           // ISO datetime — start time (or date at 00:00 if all-day)
+  end_at: string | null;    // ISO datetime — end time, null if all-day or no end
+  is_all_day: boolean;
   is_recurring: boolean;
   recurrence_rule: RecurrenceRule;
   member_id: string | null;
@@ -78,6 +80,7 @@ export interface ShoppingList {
   name: string;
   store_category: string | null;
   color: string;
+  is_featured: boolean;   // only one list can be featured at a time; shown on dashboard
   created_by: string | null;
   created_at: string;
 }

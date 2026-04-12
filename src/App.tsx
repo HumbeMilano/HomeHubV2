@@ -9,6 +9,7 @@ import ShoppingPage from './features/shopping/ShoppingPage';
 import RemindersPage from './features/reminders/RemindersPage';
 import FinancePage from './features/finance/FinancePage';
 import NotesPage from './features/notes/NotesPage';
+import MembersPage from './features/members/MembersPage';
 
 const PAGES: Record<AppPage, { label: string; icon: string }> = {
   dashboard:  { label: 'Dashboard',  icon: '🏠' },
@@ -23,17 +24,29 @@ const PAGES: Record<AppPage, { label: string; icon: string }> = {
 
 export default function App() {
   const { isLocked } = useAuthStore();
-  const { currentPage, navigate } = useAppStore();
+  const { currentPage, navigate, sidebarOpen, setSidebarOpen } = useAppStore();
 
-  if (isLocked) {
-    return <LockScreen />;
-  }
+  if (isLocked) return <LockScreen />;
 
   return (
     <div className="app-shell">
-      <Sidebar currentPage={currentPage} onNavigate={navigate} />
+      {/* Backdrop — closes sidebar on click */}
+      {sidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <Sidebar
+        isOpen={sidebarOpen}
+        currentPage={currentPage}
+        onNavigate={navigate}
+        onClose={() => setSidebarOpen(false)}
+      />
+
       <div className="main-content">
-        <Topbar title={PAGES[currentPage].label} />
+        <Topbar
+          title={PAGES[currentPage].label}
+          onMenuClick={() => setSidebarOpen(true)}
+        />
         <div className="page-area">
           <PageRouter page={currentPage} />
         </div>
@@ -43,12 +56,21 @@ export default function App() {
   );
 }
 
-
-function Sidebar({ currentPage, onNavigate }: { currentPage: AppPage; onNavigate: (p: AppPage) => void }) {
+function Sidebar({ isOpen, currentPage, onNavigate, onClose }: {
+  isOpen: boolean;
+  currentPage: AppPage;
+  onNavigate: (p: AppPage) => void;
+  onClose: () => void;
+}) {
   return (
-    <nav className="sidebar">
-      <div style={{ padding: '0 var(--sp-5) var(--sp-6)', borderBottom: '1px solid var(--border)', marginBottom: 'var(--sp-3)' }}>
+    <nav className={`sidebar${isOpen ? ' open' : ''}`}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 var(--sp-5) var(--sp-6)', borderBottom: '1px solid var(--border)', marginBottom: 'var(--sp-3)' }}>
         <span style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>🏠 HomeHub</span>
+        <button
+          style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '2px 4px' }}
+          onClick={onClose}
+          title="Close menu"
+        >✕</button>
       </div>
       {(Object.keys(PAGES) as AppPage[]).map((page) => (
         <button
@@ -64,11 +86,12 @@ function Sidebar({ currentPage, onNavigate }: { currentPage: AppPage; onNavigate
   );
 }
 
-function Topbar({ title }: { title: string }) {
+function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () => void }) {
   const { lock, activeMember } = useAuthStore();
   const { theme, setTheme } = useAppStore();
   return (
     <header className="topbar">
+      <button className="btn btn--ghost btn--icon" onClick={onMenuClick} title="Menu">☰</button>
       <span className="topbar__title">{title}</span>
       <button
         className="btn btn--ghost btn--icon"
@@ -80,11 +103,14 @@ function Topbar({ title }: { title: string }) {
       {activeMember && (
         <div
           className="avatar"
-          style={{ background: activeMember.color, cursor: 'pointer' }}
+          style={{ background: activeMember.color, cursor: 'pointer', overflow: 'hidden' }}
           title={activeMember.name}
           onClick={lock}
         >
-          {activeMember.name.slice(0, 2).toUpperCase()}
+          {activeMember.avatar_url
+            ? <img src={activeMember.avatar_url} alt={activeMember.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : activeMember.name.slice(0, 2).toUpperCase()
+          }
         </div>
       )}
     </header>
@@ -121,17 +147,11 @@ function PageRouter({ page }: { page: AppPage }) {
   if (page === 'reminders') return <RemindersPage />;
   if (page === 'finance')   return <FinancePage />;
   if (page === 'notes')     return <NotesPage />;
-  // Other pages built in later phases
+  if (page === 'members')   return <MembersPage />;
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', height: '60vh', gap: 'var(--sp-4)',
-      color: 'var(--text-2)',
-    }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 'var(--sp-4)', color: 'var(--text-2)' }}>
       <span style={{ fontSize: 56 }}>{PAGES[page].icon}</span>
-      <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text)' }}>
-        {PAGES[page].label}
-      </h2>
+      <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text)' }}>{PAGES[page].label}</h2>
       <p style={{ fontSize: 'var(--text-sm)' }}>Coming soon</p>
     </div>
   );

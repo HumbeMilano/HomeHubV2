@@ -1,0 +1,28 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--sp-4);
+  gap: var(--sp-2);
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.area {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.area::placeholder { color: var(--text-3); }

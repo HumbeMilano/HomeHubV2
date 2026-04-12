@@ -48,9 +48,20 @@ VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
 ```
 
+## Git Workflow
+
+Before starting work on any new page or feature, always create a dedicated branch:
+```bash
+git checkout -b feature/<page-name>
+```
+Example: `git checkout -b feature/members`, `git checkout -b feature/calendar`.
+
 ## Additional Documentation
 
 | File | When to check |
 |---|---|
 | `.claude/docs/architectural_patterns.md` | State management, real-time sync, optimistic updates, feature folder conventions |
 | `.claude/docs/database_schema.md` | Full Supabase table definitions and migration SQL |
+
+## Rules
+read files first. Write complete solution. test onces. No over-engieneering

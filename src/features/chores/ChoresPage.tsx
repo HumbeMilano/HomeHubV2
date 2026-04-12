@@ -71,7 +71,6 @@ export default function ChoresPage() {
                     <span className={styles.choreTitle}>{chore.title}</span>
                     <span className={styles.choreMeta}>
                       {chore.recurrence_rule === 'none' ? 'One-time' : chore.recurrence_rule}
-                      {chore.rotation_enabled ? ' · rotating' : ''}
                     </span>
                   </div>
                   <button
