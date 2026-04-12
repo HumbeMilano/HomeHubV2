@@ -18,58 +18,36 @@ export interface Photo {
   created_at: string;
 }
 
-// ── Chores ─────────────────────────────────────────────────────────────────
-export type RecurrenceRule = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+// ── Calendar items (events + reminders, unified) ───────────────────────────
+export type RepeatRule = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type ReminderCategory = 'personal' | 'to_do' | 'bill' | 'appointment' | 'other';
 
-export interface Chore {
+export interface CalendarItem {
   id: string;
+  type: 'event' | 'reminder';
   title: string;
-  description: string | null;
-  category: string | null;
-  recurrence_rule: RecurrenceRule;
-  created_by: string | null;
+  color: string;
+  all_day: boolean;
+  start_at: string;           // ISO datetime
+  end_at: string | null;      // ISO datetime — null for all-day or no end
+  repeat: RepeatRule;
+  notes: string | null;
+  reminder_category: ReminderCategory | null;  // only meaningful when type='reminder'
+  member_id: string | null;
   created_at: string;
 }
 
-export interface ChoreAssignment {
-  id: string;
-  chore_id: string;
-  member_id: string;
-  rotation_order: number;
-}
-
-export interface ChoreCompletion {
-  id: string;
-  chore_id: string;
-  completed_by: string;
-  scheduled_date: string;   // ISO date string YYYY-MM-DD
-  completed_at: string | null;
-}
-
-// ── Calendar ───────────────────────────────────────────────────────────────
-export type CalendarEventType = 'chore' | 'reminder' | 'bill';
-
-export interface CalendarEvent {
-  id: string;
-  title: string;
-  start_time: string;   // ISO datetime
-  end_time: string | null;
-  type: CalendarEventType;
-  linked_id: string | null;
-  member_id: string | null;
-  color?: string;
-}
-
-// ── Reminders ──────────────────────────────────────────────────────────────
+// ── Legacy types kept for backwards compat (Shopping widget etc) ────────────
 export interface Reminder {
   id: string;
   title: string;
   body: string | null;
-  due_at: string;           // ISO datetime — start time (or date at 00:00 if all-day)
-  end_at: string | null;    // ISO datetime — end time, null if all-day or no end
+  due_at: string;
+  end_at: string | null;
   is_all_day: boolean;
   is_recurring: boolean;
-  recurrence_rule: RecurrenceRule;
+  recurrence_rule: 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  notes: string | null;
   member_id: string | null;
   created_at: string;
 }
@@ -189,9 +167,7 @@ export interface FinOverride {
 export type AppPage =
   | 'dashboard'
   | 'calendar'
-  | 'chores'
   | 'shopping'
-  | 'reminders'
   | 'finance'
   | 'notes'
   | 'members';

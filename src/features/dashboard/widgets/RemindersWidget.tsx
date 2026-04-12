@@ -1,17 +1,19 @@
 import { useEffect } from 'react';
-import { format, isPast } from 'date-fns';
+import { format, isPast, isToday } from 'date-fns';
 import { Bell } from 'lucide-react';
-import { useRemindersStore } from '../../../store/remindersStore';
+import { useCalendarStore } from '../../../store/calendarStore';
 import styles from './RemindersWidget.module.css';
 
 export default function RemindersWidget() {
-  const { reminders, fetchAll } = useRemindersStore();
+  const { items, fetchAll } = useCalendarStore();
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const upcoming = reminders
-    .filter((r) => !isPast(new Date(r.due_at)) || r.is_all_day)
-    .sort((a, b) => a.due_at.localeCompare(b.due_at))
+  const upcoming = items
+    .filter((item) => {
+      const d = new Date(item.start_at);
+      return item.type === 'reminder' && (!isPast(d) || isToday(d));
+    })
     .slice(0, 6);
 
   return (
@@ -23,11 +25,15 @@ export default function RemindersWidget() {
         <ul className={styles.list}>
           {upcoming.map((r) => (
             <li key={r.id} className={styles.item}>
+              <span
+                className={styles.dot}
+                style={{ background: r.color }}
+              />
               <span className={styles.itemTitle}>{r.title}</span>
               <span className={styles.itemDate}>
-                {r.is_all_day
-                  ? format(new Date(r.due_at), 'MMM d')
-                  : format(new Date(r.due_at), 'MMM d, h:mm a')}
+                {r.all_day
+                  ? format(new Date(r.start_at), 'MMM d')
+                  : format(new Date(r.start_at), 'MMM d, h:mm a')}
               </span>
             </li>
           ))}

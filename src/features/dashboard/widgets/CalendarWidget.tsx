@@ -4,13 +4,13 @@ import {
   startOfWeek, endOfWeek, isSameMonth, isToday, isSameDay,
 } from 'date-fns';
 import { X } from 'lucide-react';
-import { useRemindersStore } from '../../../store/remindersStore';
+import { useCalendarStore } from '../../../store/calendarStore';
 import styles from './CalendarWidget.module.css';
 
 export default function CalendarWidget() {
   const [month, setMonth]       = useState(new Date());
   const [selected, setSelected] = useState<Date | null>(null);
-  const { reminders, fetchAll, addReminder } = useRemindersStore();
+  const { items, fetchAll, addItem } = useCalendarStore();
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -19,7 +19,7 @@ export default function CalendarWidget() {
   const days  = eachDayOfInterval({ start, end });
 
   function hasEvent(day: Date) {
-    return reminders.some((r) => isSameDay(new Date(r.due_at), day));
+    return items.some((item) => isSameDay(new Date(item.start_at), day));
   }
 
   function prevMonth() { setMonth((m) => { const d = new Date(m); d.setMonth(d.getMonth() - 1); return d; }); }
@@ -64,14 +64,16 @@ export default function CalendarWidget() {
               const [h, m] = time.split(':').map(Number);
               due.setHours(h, m, 0, 0);
             }
-            await addReminder({
+            await addItem({
+              type: 'reminder',
               title,
-              due_at: due.toISOString(),
-              is_all_day: isAllDay,
+              color: '#5b5bf6',
+              all_day: isAllDay,
+              start_at: due.toISOString(),
               end_at: null,
+              repeat: 'none',
               notes: null,
-              is_recurring: false,
-              recurrence_rule: null,
+              reminder_category: 'personal',
               member_id: null,
             });
             setSelected(null);

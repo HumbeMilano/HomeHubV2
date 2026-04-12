@@ -1,6 +1,6 @@
 import {
-  Home, Calendar, CheckSquare, ShoppingCart, Bell, Wallet,
-  FileText, Users, Menu, X, Sun, Moon, Pencil,
+  Home, Calendar, ShoppingCart, Wallet,
+  FileText, Users, Menu, X, Sun, Moon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from './store/authStore';
@@ -9,22 +9,18 @@ import type { AppPage } from './types';
 import LockScreen from './features/lockscreen/LockScreen';
 import Dashboard from './features/dashboard/Dashboard';
 import CalendarPage from './features/calendar/CalendarPage';
-import ChoresPage from './features/chores/ChoresPage';
 import ShoppingPage from './features/shopping/ShoppingPage';
-import RemindersPage from './features/reminders/RemindersPage';
 import FinancePage from './features/finance/FinancePage';
 import NotesPage from './features/notes/NotesPage';
 import MembersPage from './features/members/MembersPage';
 
 const PAGES: Record<AppPage, { label: string; icon: LucideIcon }> = {
-  dashboard:  { label: 'Dashboard',  icon: Home },
-  calendar:   { label: 'Calendar',   icon: Calendar },
-  chores:     { label: 'Chores',     icon: CheckSquare },
-  shopping:   { label: 'Shopping',   icon: ShoppingCart },
-  reminders:  { label: 'Reminders',  icon: Bell },
-  finance:    { label: 'Finance',    icon: Wallet },
-  notes:      { label: 'Notes',      icon: FileText },
-  members:    { label: 'Members',    icon: Users },
+  dashboard: { label: 'Dashboard', icon: Home },
+  calendar:  { label: 'Calendar',  icon: Calendar },
+  shopping:  { label: 'Shopping',  icon: ShoppingCart },
+  finance:   { label: 'Finance',   icon: Wallet },
+  notes:     { label: 'Notes',     icon: FileText },
+  members:   { label: 'Members',   icon: Users },
 };
 
 export default function App() {
@@ -106,7 +102,7 @@ function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () => void
       <span className="topbar__title">{title}</span>
       <button
         className="btn btn--ghost btn--icon"
-        title="Toggle theme"
+        title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       >
         {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -129,7 +125,7 @@ function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () => void
 }
 
 function BottomNav({ currentPage, onNavigate }: { currentPage: AppPage; onNavigate: (p: AppPage) => void }) {
-  const mobilePages: AppPage[] = ['dashboard', 'calendar', 'shopping', 'notes', 'finance'];
+  const mobilePages: AppPage[] = ['dashboard', 'calendar', 'shopping', 'finance', 'notes'];
   return (
     <nav className="bottom-nav">
       {mobilePages.map((page) => {
@@ -156,9 +152,7 @@ function BottomNav({ currentPage, onNavigate }: { currentPage: AppPage; onNaviga
 function PageRouter({ page }: { page: AppPage }) {
   if (page === 'dashboard') return <Dashboard />;
   if (page === 'calendar')  return <CalendarPage />;
-  if (page === 'chores')    return <ChoresPage />;
   if (page === 'shopping')  return <ShoppingPage />;
-  if (page === 'reminders') return <RemindersPage />;
   if (page === 'finance')   return <FinancePage />;
   if (page === 'notes')     return <NotesPage />;
   if (page === 'members')   return <MembersPage />;
