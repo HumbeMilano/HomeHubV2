@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Plus, Pencil, X, Check } from 'lucide-react';
 import type { FinBill, BillType } from '../../types';
 import { useFinanceStore } from '../../store/financeStore';
 import { fmt } from '../../lib/utils';
@@ -10,7 +11,7 @@ export default function BillsTab() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn btn--primary" onClick={() => setModal('new')}>+ Add bill</button>
+        <button className="btn btn--primary" style={{ display:'flex', alignItems:'center', gap:4 }} onClick={() => setModal('new')}><Plus size={14} /> Add bill</button>
       </div>
 
       {bills.map((bill) => {
@@ -32,7 +33,7 @@ export default function BillsTab() {
               }}
               onClick={() => setBillStatus(bill.id, isPaid ? 'pending' : 'paid')}
             >
-              {isPaid ? '✓' : ''}
+              {isPaid ? <Check size={12} /> : null}
             </button>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>{bill.name}</div>
@@ -43,12 +44,12 @@ export default function BillsTab() {
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)', fontWeight: 600 }}>
               {fmt(bill.base_amount)}
             </span>
-            <button className="btn btn--ghost btn--sm" onClick={() => setModal(bill)}>Edit</button>
+            <button className="btn btn--ghost btn--icon" style={{ width:30, height:30 }} onClick={() => setModal(bill)}><Pencil size={14} /></button>
             <button
-              className="btn btn--ghost btn--sm"
-              style={{ color: 'var(--danger)' }}
+              className="btn btn--ghost btn--icon"
+              style={{ color: 'var(--danger)', width:30, height:30 }}
               onClick={() => { if (confirm(`Delete "${bill.name}"?`)) deleteBill(bill.id); }}
-            >✕</button>
+            ><X size={14} /></button>
           </div>
         );
       })}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { FileText, Plus, GripVertical, X } from 'lucide-react';
 import type { Note } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -9,7 +10,7 @@ import styles from './NotesPage.module.css';
 
 const bc = createBroadcastChannel<Note>('notes');
 
-const NOTE_COLORS = ['#facc15','#34d399','#60a5fa','#f472b6','#fb923c','#a78bfa','#f87171'];
+const NOTE_COLORS = ['#e9d97a','#7ecfaa','#7ab8e8','#d97ab8','#e8a870','#a889d4','#e87a7a'];
 const DEFAULT_WIDTH = 200;
 const DEFAULT_HEIGHT = 160;
 
@@ -76,7 +77,7 @@ export default function NotesPage() {
     <div className={styles.root}>
       <div className={styles.toolbar}>
         <h2 className={styles.heading}>Notes</h2>
-        <button className="btn btn--primary" onClick={addNote}>+ New note</button>
+        <button className="btn btn--primary" style={{ display:'flex', alignItems:'center', gap:4 }} onClick={addNote}><Plus size={14} /> New note</button>
       </div>
       <div className={styles.board} ref={boardRef}>
         {notes.map((note) => (
@@ -89,7 +90,7 @@ export default function NotesPage() {
         ))}
         {notes.length === 0 && (
           <div className={styles.empty}>
-            <div style={{ fontSize: 48 }}>📝</div>
+            <FileText size={48} />
             <p>Click "+ New note" to add a sticky note</p>
           </div>
         )}
@@ -159,12 +160,12 @@ function NoteCard({ note, onUpdate, onDelete }: NoteCardProps) {
       onMouseDown={onMouseDown}
     >
       <div className={styles.noteHandle}>
-        <span className={styles.noteGrip}>⋮⋮</span>
+        <GripVertical size={14} style={{ color: 'rgba(0,0,0,.3)', flexShrink: 0 }} />
         <button
           className={styles.noteDelete}
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           title="Delete note"
-        >✕</button>
+        ><X size={12} /></button>
       </div>
       <textarea
         className={styles.noteText}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CloudSun, Pencil } from 'lucide-react';
 import styles from './WeatherWidget.module.css';
 
 const KEY_STORE  = 'homehub-weather-key';
@@ -47,7 +48,7 @@ export default function WeatherWidget() {
   if (configuring) {
     return (
       <div className={styles.root}>
-        <h3 className={styles.title}>🌤 Weather</h3>
+        <h3 className={styles.title}><CloudSun size={14} /> Weather</h3>
         <form onSubmit={saveConfig} className={styles.form}>
           <input className="input" placeholder="City (e.g. Miami)" value={city} onChange={(e) => setCity(e.target.value)} required />
           <input className="input" placeholder="OpenWeatherMap API key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} required />
@@ -61,7 +62,7 @@ export default function WeatherWidget() {
     <div className={styles.root}>
       <h3 className={styles.title}>
         🌤 {data?.city ?? city}
-        <button className={styles.editBtn} onClick={() => setConfiguring(true)} title="Edit">✏️</button>
+        <button className={styles.editBtn} onClick={() => setConfiguring(true)} title="Edit"><Pencil size={12} /></button>
       </h3>
       {error && <p className={styles.error}>{error}</p>}
       {data && !error && (

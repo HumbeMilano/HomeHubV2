@@ -1,3 +1,8 @@
+import {
+  Home, Calendar, CheckSquare, ShoppingCart, Bell, Wallet,
+  FileText, Users, Menu, X, Sun, Moon, Pencil,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from './store/authStore';
 import { useAppStore } from './store/appStore';
 import type { AppPage } from './types';
@@ -11,15 +16,15 @@ import FinancePage from './features/finance/FinancePage';
 import NotesPage from './features/notes/NotesPage';
 import MembersPage from './features/members/MembersPage';
 
-const PAGES: Record<AppPage, { label: string; icon: string }> = {
-  dashboard:  { label: 'Dashboard',  icon: '🏠' },
-  calendar:   { label: 'Calendar',   icon: '📅' },
-  chores:     { label: 'Chores',     icon: '✅' },
-  shopping:   { label: 'Shopping',   icon: '🛒' },
-  reminders:  { label: 'Reminders',  icon: '🔔' },
-  finance:    { label: 'Finance',    icon: '💰' },
-  notes:      { label: 'Notes',      icon: '📝' },
-  members:    { label: 'Members',    icon: '👥' },
+const PAGES: Record<AppPage, { label: string; icon: LucideIcon }> = {
+  dashboard:  { label: 'Dashboard',  icon: Home },
+  calendar:   { label: 'Calendar',   icon: Calendar },
+  chores:     { label: 'Chores',     icon: CheckSquare },
+  shopping:   { label: 'Shopping',   icon: ShoppingCart },
+  reminders:  { label: 'Reminders',  icon: Bell },
+  finance:    { label: 'Finance',    icon: Wallet },
+  notes:      { label: 'Notes',      icon: FileText },
+  members:    { label: 'Members',    icon: Users },
 };
 
 export default function App() {
@@ -30,7 +35,6 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {/* Backdrop — closes sidebar on click */}
       {sidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
       )}
@@ -64,24 +68,29 @@ function Sidebar({ isOpen, currentPage, onNavigate, onClose }: {
 }) {
   return (
     <nav className={`sidebar${isOpen ? ' open' : ''}`}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 var(--sp-5) var(--sp-6)', borderBottom: '1px solid var(--border)', marginBottom: 'var(--sp-3)' }}>
-        <span style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>🏠 HomeHub</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 var(--sp-5) var(--sp-6)', borderBottom: '1.5px solid var(--border)', marginBottom: 'var(--sp-3)' }}>
+        <span style={{ fontWeight: 700, fontSize: 'var(--text-md)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+          <Home size={18} /> HomeHub
+        </span>
         <button
-          style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '2px 4px' }}
+          style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
           onClick={onClose}
           title="Close menu"
-        >✕</button>
+        ><X size={18} /></button>
       </div>
-      {(Object.keys(PAGES) as AppPage[]).map((page) => (
-        <button
-          key={page}
-          className={`nav-item${currentPage === page ? ' active' : ''}`}
-          onClick={() => onNavigate(page)}
-        >
-          <span className="nav-item__icon">{PAGES[page].icon}</span>
-          {PAGES[page].label}
-        </button>
-      ))}
+      {(Object.keys(PAGES) as AppPage[]).map((page) => {
+        const Icon = PAGES[page].icon;
+        return (
+          <button
+            key={page}
+            className={`nav-item${currentPage === page ? ' active' : ''}`}
+            onClick={() => onNavigate(page)}
+          >
+            <span className="nav-item__icon"><Icon size={18} /></span>
+            {PAGES[page].label}
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -91,14 +100,16 @@ function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () => void
   const { theme, setTheme } = useAppStore();
   return (
     <header className="topbar">
-      <button className="btn btn--ghost btn--icon" onClick={onMenuClick} title="Menu">☰</button>
+      <button className="btn btn--ghost btn--icon" onClick={onMenuClick} title="Menu">
+        <Menu size={20} />
+      </button>
       <span className="topbar__title">{title}</span>
       <button
         className="btn btn--ghost btn--icon"
         title="Toggle theme"
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       >
-        {theme === 'dark' ? '☀️' : '🌙'}
+        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
       </button>
       {activeMember && (
         <div
@@ -121,20 +132,23 @@ function BottomNav({ currentPage, onNavigate }: { currentPage: AppPage; onNaviga
   const mobilePages: AppPage[] = ['dashboard', 'calendar', 'shopping', 'notes', 'finance'];
   return (
     <nav className="bottom-nav">
-      {mobilePages.map((page) => (
-        <button
-          key={page}
-          style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: '2px', fontSize: 'var(--text-xs)',
-            color: currentPage === page ? 'var(--accent)' : 'var(--text-3)',
-          }}
-          onClick={() => onNavigate(page)}
-        >
-          <span style={{ fontSize: 20 }}>{PAGES[page].icon}</span>
-          {PAGES[page].label}
-        </button>
-      ))}
+      {mobilePages.map((page) => {
+        const Icon = PAGES[page].icon;
+        return (
+          <button
+            key={page}
+            style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', gap: '2px', fontSize: 'var(--text-xs)',
+              color: currentPage === page ? 'var(--accent)' : 'var(--text-3)',
+            }}
+            onClick={() => onNavigate(page)}
+          >
+            <Icon size={22} />
+            {PAGES[page].label}
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -150,7 +164,6 @@ function PageRouter({ page }: { page: AppPage }) {
   if (page === 'members')   return <MembersPage />;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 'var(--sp-4)', color: 'var(--text-2)' }}>
-      <span style={{ fontSize: 56 }}>{PAGES[page].icon}</span>
       <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text)' }}>{PAGES[page].label}</h2>
       <p style={{ fontSize: 'var(--text-sm)' }}>Coming soon</p>
     </div>

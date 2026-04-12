@@ -48,7 +48,7 @@ img, svg { display: block; max-width: 100%; }
   bottom: 0;
   width: 220px;
   background: var(--bg-2);
-  border-right: 1px solid var(--border);
+  border-right: 1.5px solid var(--border);
   display: flex;
   flex-direction: column;
   padding: var(--sp-5) 0;
@@ -88,7 +88,7 @@ img, svg { display: block; max-width: 100%; }
 .topbar {
   height: 56px;
   background: var(--bg-2);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1.5px solid var(--border);
   display: flex;
   align-items: center;
   gap: var(--sp-4);
@@ -107,7 +107,7 @@ img, svg { display: block; max-width: 100%; }
   display: none;
   height: 60px;
   background: var(--bg-2);
-  border-top: 1px solid var(--border);
+  border-top: 1.5px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -145,7 +145,7 @@ img, svg { display: block; max-width: 100%; }
 /* ─── Cards ──────────────────────────────────────────────────────────────── */
 .card {
   background: var(--bg-2);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--r-md);
   padding: var(--sp-5);
 }
@@ -185,7 +185,7 @@ img, svg { display: block; max-width: 100%; }
 .btn--ghost {
   background: transparent;
   color: var(--text-2);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
 }
 
 .btn--ghost:hover {
@@ -228,7 +228,7 @@ img, svg { display: block; max-width: 100%; }
 
 .input {
   background: var(--bg-3);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--r-sm);
   color: var(--text);
   padding: var(--sp-2) var(--sp-3);

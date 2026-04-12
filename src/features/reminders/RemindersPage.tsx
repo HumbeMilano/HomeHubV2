@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format, isPast, isToday } from 'date-fns';
+import { Bell, Plus, Pencil, X } from 'lucide-react';
 import type { Reminder } from '../../types';
 import { useRemindersStore } from '../../store/remindersStore';
 import { useAuthStore } from '../../store/authStore';
@@ -39,7 +40,7 @@ export default function RemindersPage() {
     <div className={styles.root}>
       <div className={styles.header}>
         <h2 className={styles.heading}>Reminders</h2>
-        <button className="btn btn--primary" onClick={() => setModal('new')}>+ Add</button>
+        <button className="btn btn--primary" style={{ display:'flex', alignItems:'center', gap:4 }} onClick={() => setModal('new')}><Plus size={14} /> Add</button>
       </div>
 
       {(['today', 'upcoming', 'past'] as const).map((group) => {
@@ -52,7 +53,7 @@ export default function RemindersPage() {
               const dateStr = formatReminderTime(r);
               return (
                 <div key={r.id} className={`${styles.row} ${group === 'past' ? styles.rowPast : ''}`}>
-                  <div className={styles.rowIcon}>🔔</div>
+                  <div className={styles.rowIcon}><Bell size={16} /></div>
                   <div className={styles.rowInfo}>
                     <span className={styles.rowTitle}>{r.title}</span>
                     <span className={styles.rowMeta}>
@@ -60,12 +61,12 @@ export default function RemindersPage() {
                       {r.is_recurring && ` · ${r.recurrence_rule}`}
                     </span>
                   </div>
-                  <button className="btn btn--ghost btn--sm" onClick={() => setModal(r)}>Edit</button>
+                  <button className="btn btn--ghost btn--icon" style={{ width: 30, height: 30 }} onClick={() => setModal(r)}><Pencil size={14} /></button>
                   <button
-                    className="btn btn--ghost btn--sm"
-                    style={{ color: 'var(--danger)' }}
+                    className="btn btn--ghost btn--icon"
+                    style={{ color: 'var(--danger)', width: 30, height: 30 }}
                     onClick={() => { if (confirm(`Delete "${r.title}"?`)) deleteReminder(r.id); }}
-                  >✕</button>
+                  ><X size={14} /></button>
                 </div>
               );
             })}
@@ -75,7 +76,7 @@ export default function RemindersPage() {
 
       {reminders.length === 0 && (
         <div style={{ textAlign: 'center', color: 'var(--text-3)', paddingTop: 80 }}>
-          <div style={{ fontSize: 48 }}>🔔</div>
+          <Bell size={48} style={{ margin: '0 auto' }} />
           <p style={{ marginTop: 'var(--sp-4)' }}>No reminders yet.</p>
         </div>
       )}

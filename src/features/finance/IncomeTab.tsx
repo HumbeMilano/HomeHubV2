@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
+import { Plus, X } from 'lucide-react';
 import type { FinIncome } from '../../types';
 import { useFinanceStore } from '../../store/financeStore';
 import { fmt } from '../../lib/utils';
@@ -16,7 +17,7 @@ export default function IncomeTab() {
         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-2)' }}>
           Total: <strong style={{ color: 'var(--success)', fontFamily: 'var(--font-mono)' }}>{fmt(total)}</strong>
         </span>
-        <button className="btn btn--primary" onClick={() => setModal(true)}>+ Add income</button>
+        <button className="btn btn--primary" style={{ display:'flex', alignItems:'center', gap:4 }} onClick={() => setModal(true)}><Plus size={14} /> Add income</button>
       </div>
 
       {monthIncome.map((i) => (
@@ -36,10 +37,10 @@ export default function IncomeTab() {
             +{fmt(i.amount)}
           </span>
           <button
-            className="btn btn--ghost btn--sm"
-            style={{ color: 'var(--danger)' }}
+            className="btn btn--ghost btn--icon"
+            style={{ color: 'var(--danger)', width:30, height:30 }}
             onClick={() => deleteIncome(i.id)}
-          >✕</button>
+          ><X size={14} /></button>
         </div>
       ))}
 

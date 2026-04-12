@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Users, Plus, Pencil, X } from 'lucide-react';
 import type { Member } from '../../types';
 import { useMembersStore } from '../../store/membersStore';
 import { subscribeToTable } from '../../lib/realtime';
@@ -11,16 +12,13 @@ export default function MembersPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Cross-device Realtime sync
   useEffect(() => {
     return subscribeToTable<Member>({
       table: 'household_members',
       onData: ({ eventType, new: row, old }) => {
         const store = useMembersStore.getState();
         if (eventType === 'INSERT' && row) {
-          if (!store.members.find((m) => m.id === row.id)) {
-            store.setMembers([...store.members, row]);
-          }
+          if (!store.members.find((m) => m.id === row.id)) store.setMembers([...store.members, row]);
         } else if (eventType === 'UPDATE' && row) {
           store.setMembers(store.members.map((m) => (m.id === row.id ? row : m)));
         } else if (eventType === 'DELETE' && old) {
@@ -39,14 +37,14 @@ export default function MembersPage() {
     <div className={styles.root}>
       <div className={styles.header}>
         <h2 className={styles.heading}>Members</h2>
-        <button className="btn btn--primary" onClick={() => setModal({})}>
-          + Add member
+        <button className="btn btn--primary" style={{ display:'flex', alignItems:'center', gap:4 }} onClick={() => setModal({})}>
+          <Plus size={14} /> Add member
         </button>
       </div>
 
       {members.length === 0 ? (
         <div className={styles.empty}>
-          <div className={styles.emptyIcon}>👥</div>
+          <div className={styles.emptyIcon}><Users size={48} /></div>
           <p>No members yet. Add one to get started.</p>
         </div>
       ) : (
@@ -73,32 +71,19 @@ export default function MembersPage() {
   );
 }
 
-interface CardProps {
-  member: Member;
-  onEdit: () => void;
-  onDelete: () => void;
-}
-
-function MemberCard({ member, onEdit, onDelete }: CardProps) {
-  const initials = member.name.slice(0, 2).toUpperCase();
+function MemberCard({ member, onEdit, onDelete }: { member: Member; onEdit: () => void; onDelete: () => void }) {
   return (
     <div className={styles.card}>
       <div className={styles.avatar} style={{ background: member.color }}>
         {member.avatar_url
           ? <img src={member.avatar_url} alt={member.name} className={styles.avatarImg} />
-          : initials
+          : member.name.slice(0, 2).toUpperCase()
         }
       </div>
       <span className={styles.name}>{member.name}</span>
       <div className={styles.actions}>
-        <button className="btn btn--ghost btn--sm" onClick={onEdit}>Edit</button>
-        <button
-          className="btn btn--ghost btn--sm"
-          style={{ color: 'var(--danger)' }}
-          onClick={onDelete}
-        >
-          ✕
-        </button>
+        <button className="btn btn--ghost btn--icon" style={{ width: 32, height: 32 }} onClick={onEdit}><Pencil size={14} /></button>
+        <button className="btn btn--ghost btn--icon" style={{ color: 'var(--danger)', width: 32, height: 32 }} onClick={onDelete}><X size={14} /></button>
       </div>
     </div>
   );

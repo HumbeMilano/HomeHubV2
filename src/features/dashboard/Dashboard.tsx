@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import GridLayout, { type Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
-import 'react-resize-detector';
+import {
+  Clock, Bell, ShoppingCart, Wallet, Calendar, FileText, CloudSun,
+  Plus, Check, Pencil,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 import WidgetWrapper from './widgets/WidgetWrapper';
 import ClockWidget from './widgets/ClockWidget';
 import RemindersWidget from './widgets/RemindersWidget';
@@ -27,9 +32,9 @@ const WIDGET_LABELS: Record<WidgetType, string> = {
   weather:   'Weather',
 };
 
-const WIDGET_ICONS: Record<WidgetType, string> = {
-  clock: '🕐', reminders: '🔔', shopping: '🛒',
-  finance: '💰', calendar: '📅', notes: '📝', weather: '🌤',
+const WIDGET_ICONS: Record<WidgetType, LucideIcon> = {
+  clock: Clock, reminders: Bell, shopping: ShoppingCart,
+  finance: Wallet, calendar: Calendar, notes: FileText, weather: CloudSun,
 };
 
 // ── Default layout ─────────────────────────────────────────────────────────
@@ -58,7 +63,14 @@ function loadWidgets(): WidgetDef[] {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
+function greeting(name: string) {
+  const h = new Date().getHours();
+  const time = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  return `${time}, ${name} 👋`;
+}
+
 export default function Dashboard() {
+  const { activeMember } = useAuthStore();
   const [widgets, setWidgets] = useState<WidgetDef[]>(loadWidgets);
   const [layout,  setLayout]  = useState<Layout[]>(loadLayout);
   const [editMode, setEditMode] = useState(false);
@@ -106,27 +118,33 @@ export default function Dashboard() {
     <div className={styles.root}>
       {/* Header bar */}
       <div className={styles.header}>
-        <span className={styles.title}>Dashboard</span>
+        <span className={styles.title}>
+          {activeMember ? greeting(activeMember.name) : 'Dashboard'}
+        </span>
         <div className={styles.actions}>
           {editMode && (
             <>
               <div className={styles.addWrap}>
                 <button
                   className="btn btn--ghost btn--sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
                   onClick={() => setAddOpen((v) => !v)}
                   disabled={availableTypes.length === 0}
                 >
-                  + Add widget
+                  <Plus size={14} /> Add widget
                 </button>
                 {addOpen && availableTypes.length > 0 && (
                   <ul className={styles.addDropdown}>
-                    {availableTypes.map((t) => (
-                      <li key={t}>
-                        <button onClick={() => addWidget(t)}>
-                          {WIDGET_ICONS[t]} {WIDGET_LABELS[t]}
-                        </button>
-                      </li>
-                    ))}
+                    {availableTypes.map((t) => {
+                      const Icon = WIDGET_ICONS[t];
+                      return (
+                        <li key={t}>
+                          <button onClick={() => addWidget(t)}>
+                            <Icon size={14} /> {WIDGET_LABELS[t]}
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -135,23 +153,24 @@ export default function Dashboard() {
           )}
           <button
             className={`btn btn--sm ${editMode ? 'btn--primary' : 'btn--ghost'}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
             onClick={() => { setEditMode((v) => !v); setAddOpen(false); }}
           >
-            {editMode ? '✅ Done' : '✏️ Edit'}
+            {editMode ? <><Check size={14} /> Done</> : <><Pencil size={14} /> Edit</>}
           </button>
         </div>
       </div>
 
       {/* Grid */}
       <GridLayout
-        layout={layout}
+        layout={editMode ? layout : layout.map((l) => ({ ...l, static: true }))}
         cols={12}
         rowHeight={80}
         width={containerWidth}
         isDraggable={editMode}
         isResizable={editMode}
         draggableHandle=".drag-handle"
-        onLayoutChange={(l) => setLayout(l)}
+        onLayoutChange={(l) => { if (editMode) setLayout(l); }}
         margin={[12, 12]}
         containerPadding={[0, 0]}
       >

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Wallet } from 'lucide-react';
 import { useFinanceStore } from '../../../store/financeStore';
 import { fmt } from '../../../lib/utils';
 import styles from './FinanceWidget.module.css';
@@ -20,7 +21,7 @@ export default function FinanceWidget() {
 
   return (
     <div className={styles.root}>
-      <h3 className={styles.title}>💰 Finance</h3>
+      <h3 className={styles.title}><Wallet size={14} /> Finance</h3>
       <div className={styles.row}>
         <span className={styles.label}>Income</span>
         <span className={styles.income}>{fmt(totalIncome)}</span>

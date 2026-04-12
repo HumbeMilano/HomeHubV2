@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
 import type { ShoppingList, ShoppingItem } from '../../types';
 import { useShoppingStore } from '../../store/shoppingStore';
 import { useAuthStore } from '../../store/authStore';
@@ -70,8 +71,8 @@ export default function ShoppingPage() {
     <div className={styles.root}>
       <div className={styles.header}>
         <h2 className={styles.heading}>Shopping</h2>
-        <button className="btn btn--primary" onClick={() => setShowForm((v) => !v)}>
-          + New list
+        <button className="btn btn--primary" style={{ display:'flex', alignItems:'center', gap:4 }} onClick={() => setShowForm((v) => !v)}>
+          <Plus size={14} /> New list
         </button>
       </div>
 

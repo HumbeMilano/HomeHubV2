@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { format, isPast } from 'date-fns';
+import { Bell } from 'lucide-react';
 import { useRemindersStore } from '../../../store/remindersStore';
 import styles from './RemindersWidget.module.css';
 
@@ -15,7 +16,7 @@ export default function RemindersWidget() {
 
   return (
     <div className={styles.root}>
-      <h3 className={styles.title}>🔔 Reminders</h3>
+      <h3 className={styles.title}><Bell size={14} /> Reminders</h3>
       {upcoming.length === 0 ? (
         <p className={styles.empty}>No upcoming reminders</p>
       ) : (

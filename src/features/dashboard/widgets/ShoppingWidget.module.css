@@ -48,6 +48,20 @@
   border-radius: var(--r-sm);
 }
 
+.itemClickable {
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.itemClickable:hover { background: var(--bg-3); }
+
+.separator {
+  height: 1px;
+  background: var(--border);
+  margin: var(--sp-1) 0;
+  list-style: none;
+}
+
 .itemChecked {
   opacity: 0.45;
   text-decoration: line-through;
