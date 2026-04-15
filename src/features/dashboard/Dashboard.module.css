@@ -2,9 +2,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
+  padding: var(--sp-5);
   min-height: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 
+/* ── Header ─────────────────────────────────────────────────────────────── */
 .header {
   display: flex;
   align-items: center;
@@ -12,34 +16,54 @@
   flex-shrink: 0;
 }
 
-.title {
+.greeting {
   font-size: var(--text-xl);
-  font-weight: 700;
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.5px;
   color: var(--text);
 }
 
+.editToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 6px 12px;
+  border-radius: var(--r-full);
+  background: transparent;
+  transition: background var(--transition), color var(--transition);
+}
+
+.editToggle:hover {
+  background: var(--bg-3);
+  color: var(--text-2);
+}
+
+/* ── Edit mode actions ───────────────────────────────────────────────────── */
 .actions {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
 }
 
-.addWrap {
-  position: relative;
-}
+.addWrap { position: relative; }
 
 .addDropdown {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   right: 0;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
+  background: var(--bg-glass);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-lg);
   list-style: none;
   padding: var(--sp-1) 0;
   z-index: var(--z-overlay);
-  min-width: 160px;
-  box-shadow: var(--shadow-md);
+  min-width: 180px;
+  box-shadow: var(--shadow-lg);
 }
 
 .addDropdown li button {
@@ -47,8 +71,8 @@
   align-items: center;
   gap: var(--sp-2);
   width: 100%;
-  padding: var(--sp-2) var(--sp-4);
-  font-size: var(--text-sm);
+  padding: 10px var(--sp-4);
+  font-size: var(--text-base);
   color: var(--text);
   background: transparent;
   border: none;
@@ -56,6 +80,65 @@
   transition: background var(--transition);
 }
 
-.addDropdown li button:hover {
-  background: var(--bg-2);
+.addDropdown li button:hover { background: rgba(120,120,128,0.12); }
+.addDropdown li + li { border-top: 0.5px solid var(--border); }
+
+/* ── Grid wrapper (view + edit) ──────────────────────────────────────────── */
+.gridWrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
+
+/* ── Grid cell (view mode) ───────────────────────────────────────────────── */
+.gridCell {
+  border-radius: var(--r-widget);
+  overflow: hidden;
+  background: var(--bg-2);
+  box-shadow: var(--shadow-sm);
+  cursor: default;
+  position: relative;
+  height: 100%;
+}
+
+.openBtn {
+  position: absolute;
+  top: var(--sp-2);
+  right: var(--sp-2);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-full);
+  background: rgba(0, 0, 0, 0.20);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+  opacity: 0;
+  transition: opacity var(--transition);
+  z-index: 2;
+}
+
+.bentoCell:hover .openBtn { opacity: 1; }
+
+/* ── Widget inner — on colored cells, override tokens to white ───────────── */
+.widgetInner {
+  width: 100%;
+  height: 100%;
+}
+
+/* Override CSS vars so all widget children render white text on color bg */
+.widgetInnerLight {
+  --text:   rgba(255,255,255,1.0);
+  --text-2: rgba(255,255,255,0.75);
+  --text-3: rgba(255,255,255,0.50);
+  --text-4: rgba(255,255,255,0.25);
+  --border: rgba(255,255,255,0.20);
+  --bg-4:   rgba(255,255,255,0.15);
+  --success: rgba(255,255,255,0.90);
+  --danger:  rgba(255,255,255,0.90);
+  --accent:  rgba(255,255,255,1.0);
+  color: rgba(255,255,255,1.0);
+}
+

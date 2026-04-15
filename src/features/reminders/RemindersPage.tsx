@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format, isPast, isToday } from 'date-fns';
-import { Bell, Plus, Pencil, X } from 'lucide-react';
+import { Bell, Plus, Pencil, X, Trash2, FileText, ChevronRight } from 'lucide-react';
 import type { Reminder } from '../../types';
 import { useRemindersStore } from '../../store/remindersStore';
 import { useAuthStore } from '../../store/authStore';
@@ -11,7 +11,8 @@ import styles from './RemindersPage.module.css';
 export default function RemindersPage() {
   const { reminders, fetchAll, deleteReminder } = useRemindersStore();
   const { activeMember } = useAuthStore();
-  const [modal, setModal] = useState<Reminder | 'new' | null>(null);
+  const [modal,  setModal]  = useState<Reminder | 'new' | null>(null);
+  const [detail, setDetail] = useState<Reminder | null>(null);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -52,7 +53,12 @@ export default function RemindersPage() {
             {items.map((r) => {
               const dateStr = formatReminderTime(r);
               return (
-                <div key={r.id} className={`${styles.row} ${group === 'past' ? styles.rowPast : ''}`}>
+                <div
+                  key={r.id}
+                  className={`${styles.row} ${group === 'past' ? styles.rowPast : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setDetail(r)}
+                >
                   <div className={styles.rowIcon}><Bell size={16} /></div>
                   <div className={styles.rowInfo}>
                     <span className={styles.rowTitle}>{r.title}</span>
@@ -61,12 +67,7 @@ export default function RemindersPage() {
                       {r.is_recurring && ` · ${r.recurrence_rule}`}
                     </span>
                   </div>
-                  <button className="btn btn--ghost btn--icon" style={{ width: 30, height: 30 }} onClick={() => setModal(r)}><Pencil size={14} /></button>
-                  <button
-                    className="btn btn--ghost btn--icon"
-                    style={{ color: 'var(--danger)', width: 30, height: 30 }}
-                    onClick={() => { if (confirm(`Delete "${r.title}"?`)) deleteReminder(r.id); }}
-                  ><X size={14} /></button>
+                  <ChevronRight size={14} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
                 </div>
               );
             })}
@@ -81,6 +82,24 @@ export default function RemindersPage() {
         </div>
       )}
 
+      {detail && (
+        <div className="modal-backdrop" onClick={() => setDetail(null)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <ReminderDetailSheet
+              reminder={detail}
+              onEdit={() => { setModal(detail); setDetail(null); }}
+              onDelete={() => {
+                if (confirm(`Delete "${detail.title}"?`)) {
+                  deleteReminder(detail.id);
+                  setDetail(null);
+                }
+              }}
+              onClose={() => setDetail(null)}
+            />
+          </div>
+        </div>
+      )}
+
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
@@ -92,6 +111,92 @@ export default function RemindersPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Reminder Detail Sheet ──────────────────────────────────────────────────
+function ReminderDetailSheet({ reminder, onEdit, onDelete, onClose }: {
+  reminder: Reminder;
+  onEdit: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const timeStr = formatReminderTime(reminder);
+  const recurrenceLabel: Record<string, string> = {
+    daily: 'Daily', weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly',
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', padding: 'var(--sp-2) 0' }}>
+      <div className="modal-handle" />
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--sp-3)', padding: '0 var(--sp-1)' }}>
+        <Bell size={20} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 3 }} />
+        <h3 style={{ flex: 1, fontSize: 'var(--text-lg)', fontWeight: 700, margin: 0, lineHeight: 1.3 }}>
+          {reminder.title}
+        </h3>
+        <button className="btn btn--ghost btn--icon" style={{ width: 32, height: 32 }} onClick={onClose}>
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Details */}
+      <div style={{
+        background: 'var(--bg-3)', borderRadius: 'var(--r-lg)',
+        overflow: 'hidden', margin: '0 var(--sp-1)',
+      }}>
+        {/* Date/time */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-4)',
+          borderBottom: (reminder.is_recurring || reminder.body) ? '0.5px solid var(--border)' : 'none',
+        }}>
+          <Bell size={15} style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+          <span style={{ fontSize: 14, color: 'var(--text)' }}>{timeStr}</span>
+        </div>
+
+        {/* Recurrence */}
+        {reminder.is_recurring && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-4)',
+            borderBottom: reminder.body ? '0.5px solid var(--border)' : 'none',
+          }}>
+            <Bell size={15} style={{ color: 'var(--text-2)', flexShrink: 0 }} />
+            <span style={{ fontSize: 14, color: 'var(--text)' }}>
+              {recurrenceLabel[reminder.recurrence_rule] ?? reminder.recurrence_rule}
+            </span>
+          </div>
+        )}
+
+        {/* Notes */}
+        {reminder.body && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--sp-3)', padding: 'var(--sp-4)' }}>
+            <FileText size={15} style={{ color: 'var(--text-2)', flexShrink: 0, marginTop: 2 }} />
+            <span style={{ fontSize: 14, color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+              {reminder.body}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 'var(--sp-3)', padding: '0 var(--sp-1)' }}>
+        <button
+          className="btn btn--danger"
+          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          onClick={onDelete}
+        >
+          <Trash2 size={14} /> Delete
+        </button>
+        <button
+          className="btn btn--primary"
+          style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          onClick={onEdit}
+        >
+          <Pencil size={14} /> Edit
+        </button>
+      </div>
     </div>
   );
 }

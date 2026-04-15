@@ -1,165 +1,160 @@
 import {
-  Home, Calendar, ShoppingCart, Wallet,
-  FileText, Users, Menu, X, Sun, Moon,
+  Home, CalendarDays, ShoppingCart, Wallet,
+  FileText, CheckSquare, Settings, Sun, Moon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from './store/authStore';
 import { useAppStore } from './store/appStore';
-import type { AppPage } from './types';
-import LockScreen from './features/lockscreen/LockScreen';
+import type { AppPage, Member } from './types';
 import Dashboard from './features/dashboard/Dashboard';
 import CalendarPage from './features/calendar/CalendarPage';
 import ShoppingPage from './features/shopping/ShoppingPage';
 import FinancePage from './features/finance/FinancePage';
 import NotesPage from './features/notes/NotesPage';
-import MembersPage from './features/members/MembersPage';
+import ChoresPage from './features/chores/ChoresPage';
+import PageTransition from './components/PageTransition';
+import SettingsPanel from './components/SettingsPanel';
 
-const PAGES: Record<AppPage, { label: string; icon: LucideIcon }> = {
-  dashboard: { label: 'Dashboard', icon: Home },
-  calendar:  { label: 'Calendar',  icon: Calendar },
-  shopping:  { label: 'Shopping',  icon: ShoppingCart },
-  finance:   { label: 'Finance',   icon: Wallet },
-  notes:     { label: 'Notes',     icon: FileText },
-  members:   { label: 'Members',   icon: Users },
-};
+const NAV_PAGES: { page: AppPage; label: string; icon: LucideIcon }[] = [
+  { page: 'dashboard', label: 'Home',     icon: Home },
+  { page: 'calendar',  label: 'Calendar', icon: CalendarDays },
+  { page: 'finance',   label: 'Finance',  icon: Wallet },
+  { page: 'shopping',  label: 'Shopping', icon: ShoppingCart },
+  { page: 'notes',     label: 'Notes',    icon: FileText },
+  { page: 'chores',    label: 'Chores',   icon: CheckSquare },
+];
 
 export default function App() {
-  const { isLocked } = useAuthStore();
-  const { currentPage, navigate, sidebarOpen, setSidebarOpen } = useAppStore();
-
-  if (isLocked) return <LockScreen />;
+  const { activeMember } = useAuthStore();
+  const { currentPage, navigate, settingsOpen, setSettingsOpen, theme, setTheme } = useAppStore();
 
   return (
     <div className="app-shell">
-      {sidebarOpen && (
-        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      <Sidebar
-        isOpen={sidebarOpen}
+      {/* Slim icon sidebar — desktop */}
+      <SlimSidebar
         currentPage={currentPage}
         onNavigate={navigate}
-        onClose={() => setSidebarOpen(false)}
+        onSettings={() => setSettingsOpen(true)}
+        activeMember={activeMember}
+        theme={theme}
+        onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       />
 
-      <div className="main-content">
-        <Topbar
-          title={PAGES[currentPage].label}
-          onMenuClick={() => setSidebarOpen(true)}
-        />
+      {/* Main content */}
+      <main className="main-content">
         <div className="page-area">
-          <PageRouter page={currentPage} />
+          <PageTransition page={currentPage}>
+            <PageRouter page={currentPage} />
+          </PageTransition>
         </div>
-        <BottomNav currentPage={currentPage} onNavigate={navigate} />
-      </div>
+      </main>
+
+      {/* Floating pill dock — mobile */}
+      <BottomDock currentPage={currentPage} onNavigate={navigate} />
+
+      {/* Settings / members panel */}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }
 
-function Sidebar({ isOpen, currentPage, onNavigate, onClose }: {
-  isOpen: boolean;
+/* ── Slim sidebar (desktop, icon-only) ────────────────────────────────────── */
+function SlimSidebar({ currentPage, onNavigate, onSettings, activeMember, theme, onThemeToggle }: {
   currentPage: AppPage;
   onNavigate: (p: AppPage) => void;
-  onClose: () => void;
+  onSettings: () => void;
+  activeMember: Member | null;
+  theme: string;
+  onThemeToggle: () => void;
 }) {
   return (
-    <nav className={`sidebar${isOpen ? ' open' : ''}`}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 var(--sp-5) var(--sp-6)', borderBottom: '1.5px solid var(--border)', marginBottom: 'var(--sp-3)' }}>
-        <span style={{ fontWeight: 700, fontSize: 'var(--text-md)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
-          <Home size={18} /> HomeHub
-        </span>
-        <button
-          style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
-          onClick={onClose}
-          title="Close menu"
-        ><X size={18} /></button>
-      </div>
-      {(Object.keys(PAGES) as AppPage[]).map((page) => {
-        const Icon = PAGES[page].icon;
-        return (
-          <button
-            key={page}
-            className={`nav-item${currentPage === page ? ' active' : ''}`}
-            onClick={() => onNavigate(page)}
-          >
-            <span className="nav-item__icon"><Icon size={18} /></span>
-            {PAGES[page].label}
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-
-function Topbar({ title, onMenuClick }: { title: string; onMenuClick: () => void }) {
-  const { lock, activeMember } = useAuthStore();
-  const { theme, setTheme } = useAppStore();
-  return (
-    <header className="topbar">
-      <button className="btn btn--ghost btn--icon" onClick={onMenuClick} title="Menu">
-        <Menu size={20} />
-      </button>
-      <span className="topbar__title">{title}</span>
+    <nav className="sidebar">
+      {/* Member avatar — first item */}
       <button
-        className="btn btn--ghost btn--icon"
+        className="nav-item"
+        onClick={onSettings}
+        title={activeMember ? activeMember.name : 'Settings'}
+        style={activeMember ? {
+          background: activeMember.color,
+          borderRadius: '50%',
+          width: 32,
+          height: 32,
+          fontSize: 12,
+          fontWeight: 700,
+          color: '#fff',
+          overflow: 'hidden',
+          padding: 0,
+        } : undefined}
+      >
+        {activeMember
+          ? (activeMember.avatar_url
+              ? <img src={activeMember.avatar_url} alt={activeMember.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : activeMember.name.slice(0, 2).toUpperCase())
+          : <Settings size={18} />}
+      </button>
+
+      <div className="sidebar-spacer" style={{ maxHeight: 8 }} />
+
+      {/* Nav items */}
+      {NAV_PAGES.map(({ page, icon: Icon }) => (
+        <button
+          key={page}
+          className={`nav-item${currentPage === page ? ' active' : ''}`}
+          onClick={() => onNavigate(page)}
+          title={NAV_PAGES.find(n => n.page === page)?.label}
+        >
+          <Icon size={20} />
+        </button>
+      ))}
+
+      <div className="sidebar-spacer" />
+
+      {/* Theme toggle */}
+      <button
+        className="nav-item"
+        onClick={onThemeToggle}
         title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
-        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       >
         {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
       </button>
-      {activeMember && (
-        <div
-          className="avatar"
-          style={{ background: activeMember.color, cursor: 'pointer', overflow: 'hidden' }}
-          title={activeMember.name}
-          onClick={lock}
-        >
-          {activeMember.avatar_url
-            ? <img src={activeMember.avatar_url} alt={activeMember.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : activeMember.name.slice(0, 2).toUpperCase()
-          }
-        </div>
-      )}
-    </header>
-  );
-}
 
-function BottomNav({ currentPage, onNavigate }: { currentPage: AppPage; onNavigate: (p: AppPage) => void }) {
-  const mobilePages: AppPage[] = ['dashboard', 'calendar', 'shopping', 'finance', 'notes'];
-  return (
-    <nav className="bottom-nav">
-      {mobilePages.map((page) => {
-        const Icon = PAGES[page].icon;
-        return (
-          <button
-            key={page}
-            style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', gap: '2px', fontSize: 'var(--text-xs)',
-              color: currentPage === page ? 'var(--accent)' : 'var(--text-3)',
-            }}
-            onClick={() => onNavigate(page)}
-          >
-            <Icon size={22} />
-            {PAGES[page].label}
-          </button>
-        );
-      })}
+      {/* Settings */}
+      <button className="nav-item" onClick={onSettings} title="Settings">
+        <Settings size={18} />
+      </button>
     </nav>
   );
 }
 
+/* ── Floating pill dock (mobile) ─────────────────────────────────────────── */
+function BottomDock({ currentPage, onNavigate }: {
+  currentPage: AppPage;
+  onNavigate: (p: AppPage) => void;
+}) {
+  return (
+    <nav className="bottom-dock">
+      {NAV_PAGES.map(({ page, label, icon: Icon }) => (
+        <button
+          key={page}
+          className={`nav-item${currentPage === page ? ' active' : ''}`}
+          onClick={() => onNavigate(page)}
+          title={label}
+        >
+          <Icon size={22} />
+          <span className="nav-item__label">{label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+/* ── Page router ─────────────────────────────────────────────────────────── */
 function PageRouter({ page }: { page: AppPage }) {
   if (page === 'dashboard') return <Dashboard />;
   if (page === 'calendar')  return <CalendarPage />;
   if (page === 'shopping')  return <ShoppingPage />;
   if (page === 'finance')   return <FinancePage />;
   if (page === 'notes')     return <NotesPage />;
-  if (page === 'members')   return <MembersPage />;
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: 'var(--sp-4)', color: 'var(--text-2)' }}>
-      <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text)' }}>{PAGES[page].label}</h2>
-      <p style={{ fontSize: 'var(--text-sm)' }}>Coming soon</p>
-    </div>
-  );
+  if (page === 'chores')    return <ChoresPage />;
+  return null;
 }

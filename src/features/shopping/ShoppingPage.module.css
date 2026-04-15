@@ -1,8 +1,8 @@
 .root {
-  padding: var(--sp-6);
+  padding: var(--sp-5);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-6);
+  gap: var(--sp-5);
 }
 
 .header {
@@ -13,7 +13,8 @@
 
 .heading {
   font-size: var(--text-xl);
-  font-weight: 700;
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.5px;
   color: var(--text);
 }
 
@@ -22,10 +23,10 @@
   flex-direction: column;
   gap: var(--sp-3);
   background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-xl);
   padding: var(--sp-5);
-  max-width: 340px;
+  max-width: 360px;
+  box-shadow: var(--shadow-md);
 }
 
 .colorRow {
@@ -35,18 +36,20 @@
 }
 
 .colorSwatch {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  transition: outline var(--transition);
+  transition: transform var(--transition-spring);
 }
+
+.colorSwatch:hover { transform: scale(1.18); }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--sp-5);
+  gap: var(--sp-4);
   align-items: start;
 }
 

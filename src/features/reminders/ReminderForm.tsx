@@ -60,6 +60,7 @@ export default function ReminderForm({ existing, memberId, onClose }: Props) {
         is_all_day: isAllDay,
         is_recurring: isRecurring,
         recurrence_rule: recurrence,
+        notes: null,
         member_id: memberId,
       };
       if (existing) {

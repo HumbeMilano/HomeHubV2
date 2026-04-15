@@ -124,6 +124,7 @@ export interface FinBill {
   base_amount: number;
   type: BillType;
   category_id: string | null;
+  subcategory_id: string | null;
   account_id: string | null;
   due_day: number | null;
   auto_pay: boolean;
@@ -161,6 +162,46 @@ export interface FinOverride {
   amount: number | null;
   splits: BillSplit[] | null;
   status: BillStatus | null;
+  hidden: boolean;        // true = bill excluded from this month only
+}
+
+// ── Chores ─────────────────────────────────────────────────────────────────
+export type RecurrenceRule = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+
+export interface Chore {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  recurrence_rule: RecurrenceRule;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ChoreAssignment {
+  id: string;
+  chore_id: string;
+  member_id: string;
+}
+
+export interface ChoreCompletion {
+  id: string;
+  chore_id: string;
+  completed_by: string;
+  scheduled_date: string;
+  completed_at: string | null;
+}
+
+// ── Calendar events (legacy unified type used by useCalendar) ──────────────
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string | null;
+  type: 'chore' | 'reminder' | 'bill';
+  linked_id: string;
+  member_id: string | null;
+  color?: string;
 }
 
 // ── UI / App state ─────────────────────────────────────────────────────────
@@ -170,6 +211,6 @@ export type AppPage =
   | 'shopping'
   | 'finance'
   | 'notes'
-  | 'members';
+  | 'chores';
 
 export type Theme = 'dark' | 'light';

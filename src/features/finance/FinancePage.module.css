@@ -1,35 +1,48 @@
+/* ── Root ────────────────────────────────────────────────────────────────── */
 .root {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-5);
+  height: 100%;
+  overflow: hidden;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
 }
 
+/* ── Month nav ───────────────────────────────────────────────────────────── */
 .monthNav {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
+  justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .monthTitle {
   font-size: var(--text-xl);
-  font-weight: 700;
-  flex: 1;
+  font-weight: var(--fw-heavy);
+  letter-spacing: -0.5px;
+  color: var(--text);
 }
 
+/* ── Summary row ─────────────────────────────────────────────────────────── */
 .summaryRow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--sp-3);
+  flex-shrink: 0;
 }
 
 .summaryCard {
   background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: var(--sp-4);
+  border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: 2px;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .summaryCard {
+  box-shadow: 0 0 0 1px var(--border), var(--shadow-sm);
 }
 
 .summaryLabel {
@@ -41,38 +54,86 @@
 }
 
 .summaryValue {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
   font-family: var(--font-mono);
 }
 
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
+
+.progressBar {
+  flex: 1;
+  height: 5px;
+  border-radius: var(--r-full);
+  background: var(--bg-3);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progressLabel {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── iOS segmented control ───────────────────────────────────────────────── */
 .tabs {
   display: flex;
   gap: 2px;
   background: var(--bg-3);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-full);
   padding: 3px;
+  flex-shrink: 0;
 }
 
 .tab {
   flex: 1;
-  padding: var(--sp-2);
-  border-radius: var(--r-sm);
-  font-size: var(--text-sm);
+  padding: 7px var(--sp-2);
+  border-radius: var(--r-full);
+  font-size: var(--text-xs);
   font-weight: 500;
   color: var(--text-2);
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background var(--transition), color var(--transition);
+  transition: background var(--transition-spring), color var(--transition),
+              box-shadow var(--transition);
+  white-space: nowrap;
 }
 
 .tab:hover { color: var(--text); }
 
 .tabActive {
   background: var(--bg-2);
-  color: var(--text);
+  color: var(--accent);
+  font-weight: 600;
   box-shadow: var(--shadow-sm);
 }
 
-.content { flex: 1; overflow-y: auto; }
+/* ── Content area ────────────────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .summaryValue { font-size: var(--text-md); }
+  .tab { padding: 6px var(--sp-1); font-size: 12px; }
+}

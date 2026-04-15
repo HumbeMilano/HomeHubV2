@@ -1,55 +1,62 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   HomeHub — Design Tokens
-   Imported by global.css — never imported directly by components.
+   HomeHub — Design Tokens  (iOS Human Interface Guidelines)
+   Font    : -apple-system / SF Pro (system default, no import needed)
+   Colours : iOS system palette — dark = OLED black, light = grouped bg
 ──────────────────────────────────────────────────────────────────────────── */
 
 :root,
 [data-theme="dark"] {
-  /* Surface */
-  --bg:           #0f0f11;
-  --bg-2:         #18181c;
-  --bg-3:         #222228;
-  --border:       #2e2e38;
-  --border-focus: #5b5bf6;
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --bg:        #000000;          /* OLED black systemBackground          */
+  --bg-2:      #1C1C1E;          /* secondarySystemBackground            */
+  --bg-3:      #2C2C2E;          /* tertiarySystemBackground             */
+  --bg-4:      #3A3A3C;          /* quaternary / elevated                */
+  --bg-glass:  rgba(28,28,30,0.82); /* frosted-glass nav bars            */
 
-  /* Text */
-  --text:         #f0f0f5;
-  --text-2:       #9090a8;
-  --text-3:       #606078;
+  /* ── Separators ───────────────────────────────────────────────────────── */
+  --border:        rgba(84,84,88,0.65);  /* iOS opaque separator dark    */
+  --border-focus:  #0A84FF;
 
-  /* Brand / accent */
-  --accent:       #5b5bf6;
-  --accent-hover: #4a4ae0;
-  --accent-dim:   rgba(91, 91, 246, 0.15);
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --text:   #FFFFFF;
+  --text-2: rgba(235,235,245,0.60);  /* secondaryLabel                   */
+  --text-3: rgba(235,235,245,0.30);  /* tertiaryLabel                    */
+  --text-4: rgba(235,235,245,0.18);  /* quaternaryLabel                  */
 
-  /* Semantic colours */
-  --success:      #22c55e;
-  --warning:      #f59e0b;
-  --danger:       #ef4444;
-  --info:         #38bdf8;
+  /* ── Accent (iOS blue) ────────────────────────────────────────────────── */
+  --accent:       #0A84FF;
+  --accent-hover: #3398FF;
+  --accent-dim:   rgba(10,132,255,0.15);
 
-  /* Module colours */
-  --color-calendar:  #818cf8;
-  --color-chores:    #34d399;
-  --color-shopping:  #fb923c;
-  --color-reminders: #f472b6;
-  --color-finance:   #4ade80;
-  --color-notes:     #facc15;
-  --color-members:   #60a5fa;
+  /* ── Semantic colours ─────────────────────────────────────────────────── */
+  --success: #30D158;   /* systemGreen  */
+  --warning: #FF9F0A;   /* systemOrange */
+  --danger:  #FF453A;   /* systemRed    */
+  --info:    #64D2FF;   /* systemCyan   */
 
-  /* Shadows */
-  --shadow-sm:    0 1px 3px rgba(0,0,0,.4);
-  --shadow-md:    0 4px 12px rgba(0,0,0,.5);
-  --shadow-lg:    0 8px 32px rgba(0,0,0,.6);
+  /* ── Module tints ─────────────────────────────────────────────────────── */
+  --color-calendar:  #636DFF;
+  --color-shopping:  #FF9F0A;
+  --color-finance:   #30D158;
+  --color-notes:     #FFD60A;
+  --color-members:   #0A84FF;
+  --color-chores:    #0A84FF;
+  --color-reminders: #FF375F;
 
-  /* Radius */
-  --r-sm:  6px;
-  --r-md:  12px;
-  --r-lg:  20px;
-  --r-xl:  28px;
-  --r-full: 9999px;
+  /* ── Shadows ──────────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.40);
+  --shadow-md: 0 4px 20px rgba(0,0,0,.45);
+  --shadow-lg: 0 16px 56px rgba(0,0,0,.60);
 
-  /* Spacing scale */
+  /* ── Radius (iOS scale) ───────────────────────────────────────────────── */
+  --r-sm:     10px;
+  --r-md:     13px;
+  --r-lg:     16px;
+  --r-widget: 18px;
+  --r-xl:     22px;
+  --r-full:   9999px;
+
+  /* ── Spacing ──────────────────────────────────────────────────────────── */
   --sp-1:  4px;
   --sp-2:  8px;
   --sp-3:  12px;
@@ -60,42 +67,96 @@
   --sp-10: 40px;
   --sp-12: 48px;
 
-  /* Typography */
-  --font-sans: 'DM Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  /* ── Typography — system SF Pro stack ────────────────────────────────── */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+               'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'Fira Code', monospace;
 
-  --text-xs:   11px;
-  --text-sm:   13px;
-  --text-base: 15px;
-  --text-md:   17px;
-  --text-lg:   20px;
-  --text-xl:   24px;
-  --text-2xl:  32px;
-  --text-3xl:  42px;
+  --text-xs:   14px;  /* caption2   */
+  --text-sm:   16px;  /* footnote   */
+  --text-base: 19px;  /* subhead    */
+  --text-md:   21px;  /* body       */
+  --text-lg:   25px;  /* title3     */
+  --text-xl:   28px;  /* title2     */
+  --text-2xl:  35px;  /* title1     */
+  --text-3xl:  50px;  /* largeTitle */
 
-  /* Z-index layers */
+  /* ── Z-index layers ──────────────────────────────────────────────────── */
   --z-base:    1;
   --z-overlay: 100;
   --z-modal:   200;
   --z-top:     300;
 
-  /* Transitions */
-  --transition: 150ms ease;
-  --transition-slow: 300ms ease;
+  /* ── Transitions ─────────────────────────────────────────────────────── */
+  --transition:        120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow:   280ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-page:   280ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  --sidebar-width: 64px;
+  --dock-height:   72px;
+  --bento-gap:     16px;
+
+  /* ── Font weights ────────────────────────────────────────────────────── */
+  --fw-bold:  700;
+  --fw-heavy: 800;
+  --fw-black: 900;
 }
 
+/* ── Light mode (explicit override) ──────────────────────────────────────── */
 [data-theme="light"] {
-  --bg:           #f5f5f8;
-  --bg-2:         #ffffff;
-  --bg-3:         #ebebf0;
-  --border:       #b8b8cc;
-  --border-focus: #5b5bf6;
+  --bg:        #F2F2F7;              /* systemGroupedBackground          */
+  --bg-2:      #FFFFFF;              /* secondaryGroupedBackground       */
+  --bg-3:      #F2F2F7;              /* tertiary ≈ bg in grouped style   */
+  --bg-4:      #E5E5EA;
+  --bg-glass:  rgba(242,242,247,0.82);
 
-  --text:         #111118;
-  --text-2:       #50506a;
-  --text-3:       #9090a8;
+  --border:        rgba(60,60,67,0.55);   /* iOS separator light — visible */
+  --border-focus:  #007AFF;
 
-  --shadow-sm:    0 1px 3px rgba(0,0,0,.08);
-  --shadow-md:    0 4px 12px rgba(0,0,0,.1);
-  --shadow-lg:    0 8px 32px rgba(0,0,0,.14);
+  --text:   #000000;
+  --text-2: rgba(60,60,67,0.60);
+  --text-3: rgba(60,60,67,0.30);
+  --text-4: rgba(60,60,67,0.18);
+
+  --accent:       #007AFF;
+  --accent-hover: #0055CC;
+  --accent-dim:   rgba(0,122,255,0.12);
+
+  --success: #34C759;
+  --warning: #FF9500;
+  --danger:  #FF3B30;
+  --info:    #32ADE6;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.06);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,.14), 0 4px 16px rgba(0,0,0,.08);
+}
+
+/* ── OS-following light mode (no explicit data-theme set) ─────────────────── */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg:        #F2F2F7;
+    --bg-2:      #FFFFFF;
+    --bg-3:      #F2F2F7;
+    --bg-4:      #E5E5EA;
+    --bg-glass:  rgba(242,242,247,0.82);
+    --border:        rgba(60,60,67,0.55);
+    --border-focus:  #007AFF;
+    --text:   #000000;
+    --text-2: rgba(60,60,67,0.60);
+    --text-3: rgba(60,60,67,0.30);
+    --text-4: rgba(60,60,67,0.18);
+    --accent:       #007AFF;
+    --accent-hover: #0055CC;
+    --accent-dim:   rgba(0,122,255,0.12);
+    --success: #34C759;
+    --warning: #FF9500;
+    --danger:  #FF3B30;
+    --info:    #32ADE6;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.06);
+    --shadow-lg: 0 16px 48px rgba(0,0,0,.14), 0 4px 16px rgba(0,0,0,.08);
+  }
 }

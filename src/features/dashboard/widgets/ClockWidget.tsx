@@ -12,7 +12,9 @@ export default function ClockWidget() {
 
   return (
     <div className={styles.root}>
-      <span className={styles.time}>{format(now, 'HH:mm')}</span>
+      <span className={styles.time}>
+        {format(now, 'h:mm')}<span className={styles.ampm}>{format(now, 'a')}</span>
+      </span>
       <span className={styles.date}>{format(now, 'EEEE, MMM d')}</span>
     </div>
   );

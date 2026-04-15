@@ -27,6 +27,6 @@
 .expense { font-size: var(--text-base); font-weight: 600; color: var(--danger); }
 
 .divider {
-  height: 1px;
+  height: 0.5px;
   background: var(--border);
 }

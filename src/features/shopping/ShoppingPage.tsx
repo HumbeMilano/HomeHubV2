@@ -70,7 +70,9 @@ export default function ShoppingPage() {
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <h2 className={styles.heading}>Shopping</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+          <h2 className={styles.heading}>Shopping</h2>
+        </div>
         <button className="btn btn--primary" style={{ display:'flex', alignItems:'center', gap:4 }} onClick={() => setShowForm((v) => !v)}>
           <Plus size={14} /> New list
         </button>

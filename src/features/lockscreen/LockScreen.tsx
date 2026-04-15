@@ -47,7 +47,9 @@ export default function LockScreen() {
       <div className={styles.overlay}>
         {/* Clock */}
         <div className={styles.clock}>
-          <span className={styles.time}>{format(now, 'HH:mm')}</span>
+          <span className={styles.time}>
+            {format(now, 'h:mm')}<span className={styles.ampm}>{format(now, 'a')}</span>
+          </span>
           <span className={styles.date}>{format(now, 'EEEE, MMMM d')}</span>
         </div>
 

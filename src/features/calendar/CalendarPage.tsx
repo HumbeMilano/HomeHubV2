@@ -1,17 +1,20 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth,
   eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth,
-  isToday, isSameDay, parseISO, differenceInMinutes, addDays,
+  isToday, isSameDay, parseISO,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, X, Pencil, Trash2, Calendar, Bell } from 'lucide-react';
-import type { CalendarItem, ReminderCategory, RepeatRule } from '../../types';
+import { ChevronLeft, ChevronRight, X, Calendar, Plus } from 'lucide-react';
+import type { CalendarItem, FinBill, ReminderCategory, RepeatRule } from '../../types';
 import { useCalendarStore } from '../../store/calendarStore';
+import { useFinanceStore } from '../../store/financeStore';
 import { useAuthStore } from '../../store/authStore';
+import { useAppStore } from '../../store/appStore';
 import { subscribeToTable } from '../../lib/realtime';
+import { EventDetailBody, EventListRow } from './EventDetail';
 import styles from './CalendarPage.module.css';
 
-// ── Colour palette ─────────────────────────────────────────────────────────
+// ── Palette ────────────────────────────────────────────────────────────────
 const EVENT_COLORS = [
   '#5b5bf6', '#ef4444', '#f97316', '#eab308',
   '#22c55e', '#06b6d4', '#a855f7', '#ec4899',
@@ -31,22 +34,49 @@ const REPEAT_OPTIONS: { value: RepeatRule; label: string }[] = [
   { value: 'yearly',  label: 'Yearly' },
 ];
 
+// ── Bill color ─────────────────────────────────────────────────────────────
+const BILL_COLOR = '#6EC895';
+
+function billsToItems(
+  bills: FinBill[],
+  year: number,
+  month: number,
+  getEffectiveAmount: (b: FinBill, y: number, m: number) => number,
+): CalendarItem[] {
+  return bills
+    .filter((b) => b.due_day != null)
+    .map((b) => {
+      const maxDay = new Date(year, month, 0).getDate();
+      const day    = Math.min(b.due_day!, maxDay);
+      const amt    = getEffectiveAmount(b, year, month);
+      const label  = amt % 1 === 0 ? `$${amt}` : `$${amt.toFixed(2)}`;
+      return {
+        id:                `bill-${b.id}`,
+        type:              'reminder' as const,
+        title:             `${b.name} · ${label}`,
+        color:             BILL_COLOR,
+        all_day:           true,
+        start_at:          new Date(year, month - 1, day).toISOString(),
+        end_at:            null,
+        repeat:            'monthly'  as const,
+        notes:             null,
+        reminder_category: 'bill'     as const,
+        member_id:         null,
+        created_at:        '',
+      };
+    });
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
-function itemColor(item: CalendarItem, alpha = 1): string {
-  if (item.type === 'event') return item.color;
-  // reminders: translucent version
-  const hex = item.color.replace('#', '');
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
+function hexToRgb(hex: string) {
+  const h = hex.replace('#', '');
+  return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
 }
 
 function itemsForDay(items: CalendarItem[], day: Date): CalendarItem[] {
   return items.filter((item) => {
     const start = parseISO(item.start_at);
     if (isSameDay(start, day)) return true;
-    // multi-day events
     if (item.end_at) {
       const end = parseISO(item.end_at);
       return day >= start && day <= end;
@@ -55,13 +85,40 @@ function itemsForDay(items: CalendarItem[], day: Date): CalendarItem[] {
   }).sort((a, b) => a.start_at.localeCompare(b.start_at));
 }
 
+// ── Long-press hook ────────────────────────────────────────────────────────
+function useLongPress(onPress: () => void, ms = 500) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fired  = useRef(false);
+  function start() { fired.current = false; timer.current = setTimeout(() => { fired.current = true; onPress(); }, ms); }
+  function stop()  { if (timer.current) clearTimeout(timer.current); }
+  return {
+    onPointerDown:  start,
+    onPointerUp:    stop,
+    onPointerLeave: stop,
+  };
+}
+
 // ── Main component ─────────────────────────────────────────────────────────
 export default function CalendarPage() {
   const { items, fetchAll, deleteItem } = useCalendarStore();
+  const { bills, getEffectiveAmount }   = useFinanceStore();
   const { activeMember } = useAuthStore();
-  const [month, setMonth] = useState(new Date());
+  const { calendarIntent, clearCalendarIntent } = useAppStore();
+  const [month,       setMonth]       = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
-  const [form, setForm] = useState<{ item?: CalendarItem; defaultDate?: Date } | null>(null);
+  const [form,        setForm]        = useState<{ item?: CalendarItem; defaultDate?: Date } | null>(null);
+  const [detail,      setDetail]      = useState<CalendarItem | null>(null);
+
+  // Consume navigation intent from widgets
+  useEffect(() => {
+    if (!calendarIntent) return;
+    if (calendarIntent.day) setSelectedDay(calendarIntent.day);
+    if (calendarIntent.openAdd) setForm({ defaultDate: calendarIntent.day ?? new Date() });
+    if (calendarIntent.openEdit) setForm({ item: calendarIntent.openEdit });
+    if (calendarIntent.detail) setDetail(calendarIntent.detail);
+    clearCalendarIntent();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -81,18 +138,24 @@ export default function CalendarPage() {
     });
   }, []);
 
-  // Month grid days
-  const start = startOfWeek(startOfMonth(month), { weekStartsOn: 0 });
-  const end   = endOfWeek(endOfMonth(month), { weekStartsOn: 0 });
-  const days  = eachDayOfInterval({ start, end });
+  const start     = startOfWeek(startOfMonth(month), { weekStartsOn: 0 });
+  const end       = endOfWeek(endOfMonth(month), { weekStartsOn: 0 });
+  const days      = eachDayOfInterval({ start, end });
+  const year      = month.getFullYear();
+  const mon       = month.getMonth() + 1;
+  const billItems = billsToItems(bills, year, mon, getEffectiveAmount);
+  const allItems  = [...items, ...billItems];
+  const dayItems  = itemsForDay(allItems, selectedDay);
 
-  const dayItems = itemsForDay(items, selectedDay);
+  function openAddForm(day: Date) {
+    setSelectedDay(day);
+    setForm({ defaultDate: day });
+  }
 
   return (
     <div className={styles.root}>
-      {/* ── Left: Month grid ─────────────────────────────── */}
+      {/* ── Left: Month grid ──────────────────────────────── */}
       <div className={styles.gridPanel}>
-        {/* Month nav */}
         <div className={styles.monthNav}>
           <button className="btn btn--ghost btn--icon" onClick={() => setMonth((m) => subMonths(m, 1))}>
             <ChevronLeft size={18} />
@@ -103,7 +166,7 @@ export default function CalendarPage() {
           </button>
         </div>
 
-        {/* Day names */}
+        {/* Day-name header */}
         <div className={styles.dayNames}>
           {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
             <span key={d} className={styles.dayName}>{d}</span>
@@ -112,46 +175,21 @@ export default function CalendarPage() {
 
         {/* Day cells */}
         <div className={styles.grid}>
-          {days.map((day) => {
-            const dayEvents = itemsForDay(items, day);
-            const isSelected = isSameDay(day, selectedDay);
-            return (
-              <div
-                key={day.toISOString()}
-                className={[
-                  styles.cell,
-                  !isSameMonth(day, month) ? styles.cellOtherMonth : '',
-                  isToday(day) ? styles.cellToday : '',
-                  isSelected ? styles.cellSelected : '',
-                ].join(' ')}
-                onClick={() => setSelectedDay(day)}
-              >
-                <span className={styles.cellNum}>{format(day, 'd')}</span>
-                <div className={styles.cellChips}>
-                  {dayEvents.slice(0, 3).map((item) => (
-                    <span
-                      key={item.id}
-                      className={styles.chip}
-                      style={{
-                        background: itemColor(item, item.type === 'reminder' ? 0.25 : 1),
-                        color: item.type === 'event' ? '#fff' : item.color,
-                        border: item.type === 'reminder' ? `1px solid ${item.color}` : 'none',
-                      }}
-                    >
-                      {item.title}
-                    </span>
-                  ))}
-                  {dayEvents.length > 3 && (
-                    <span className={styles.chipMore}>+{dayEvents.length - 3}</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {days.map((day) => (
+            <DayCell
+              key={day.toISOString()}
+              day={day}
+              month={month}
+              items={itemsForDay(allItems, day)}
+              selectedDay={selectedDay}
+              onSelect={setSelectedDay}
+              onAdd={openAddForm}
+            />
+          ))}
         </div>
       </div>
 
-      {/* ── Right: Day panel ─────────────────────────────── */}
+      {/* ── Right: Day panel ──────────────────────────────── */}
       <div className={styles.dayPanel}>
         <div className={styles.dayPanelHeader}>
           <div>
@@ -159,29 +197,40 @@ export default function CalendarPage() {
             <div className={styles.dayPanelNum}>{format(selectedDay, 'MMMM d, yyyy')}</div>
           </div>
           <button
-            className="btn btn--primary btn--sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-            onClick={() => setForm({ defaultDate: selectedDay })}
+            className="btn btn--ghost btn--icon"
+            onClick={() => openAddForm(selectedDay)}
+            title="Add event"
           >
-            <Plus size={14} /> Add
+            <Plus size={16} />
           </button>
         </div>
 
-        {/* Timeline + all-day section */}
         {dayItems.length === 0 ? (
           <div className={styles.dayEmpty}>
             <Calendar size={32} />
-            <p>No events. Tap + to add one.</p>
+            <p>No events</p>
           </div>
         ) : (
-          <DayTimeline
-            day={selectedDay}
+          <DayEventList
             items={dayItems}
-            onEdit={(item) => setForm({ item })}
-            onDelete={deleteItem}
+            onView={setDetail}
           />
         )}
       </div>
+
+      {/* ── Detail sheet ─────────────────────────────────── */}
+      {detail && (
+        <div className="modal-backdrop" onClick={() => setDetail(null)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <ItemDetailSheet
+              item={detail}
+              onEdit={() => { setDetail(null); setForm({ item: detail }); }}
+              onDelete={(id) => { if (confirm(`Delete "${detail.title}"?`)) { deleteItem(id); setDetail(null); } }}
+              onClose={() => setDetail(null)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Form modal ───────────────────────────────────── */}
       {form && (
@@ -200,118 +249,108 @@ export default function CalendarPage() {
   );
 }
 
-// ── Day timeline ──────────────────────────────────────────────────────────
-function DayTimeline({ day, items, onEdit, onDelete }: {
+// ── DayCell — extracted so useLongPress is a top-level hook call (fixes hooks violation) ──
+interface DayCellProps {
   day: Date;
+  month: Date;
   items: CalendarItem[];
-  onEdit: (item: CalendarItem) => void;
-  onDelete: (id: string) => void;
-}) {
-  const allDay  = items.filter((i) => i.all_day);
-  const timed   = items.filter((i) => !i.all_day);
-  const HOUR_H  = 56; // px per hour
-  const START_H = 6;  // timeline starts at 6am
-  const hours   = Array.from({ length: 18 }, (_, i) => i + START_H); // 6am–midnight
+  selectedDay: Date;
+  onSelect: (day: Date) => void;
+  onAdd: (day: Date) => void;
+}
 
-  function topPx(item: CalendarItem): number {
-    const start = parseISO(item.start_at);
-    const h = start.getHours() + start.getMinutes() / 60;
-    return Math.max(0, (h - START_H) * HOUR_H);
-  }
-
-  function heightPx(item: CalendarItem): number {
-    if (!item.end_at) return HOUR_H * 0.75;
-    const mins = differenceInMinutes(parseISO(item.end_at), parseISO(item.start_at));
-    return Math.max(24, (mins / 60) * HOUR_H);
-  }
+function DayCell({ day, month, items, selectedDay, onSelect, onAdd }: DayCellProps) {
+  const longPress = useLongPress(() => onAdd(day));
 
   return (
-    <div className={styles.timeline}>
-      {/* All-day events */}
-      {allDay.length > 0 && (
-        <div className={styles.allDayRow}>
-          <span className={styles.allDayLabel}>All day</span>
-          <div className={styles.allDayItems}>
-            {allDay.map((item) => (
-              <ItemCard key={item.id} item={item} onEdit={onEdit} onDelete={onDelete} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Timed grid */}
-      <div className={styles.timeGrid}>
-        {/* Hour labels + lines */}
-        {hours.map((h) => (
-          <div key={h} className={styles.hourRow} style={{ height: HOUR_H }}>
-            <span className={styles.hourLabel}>{h === 12 ? '12pm' : h < 12 ? `${h}am` : `${h - 12}pm`}</span>
-            <div className={styles.hourLine} />
-          </div>
-        ))}
-
-        {/* Timed event blocks */}
-        <div className={styles.eventLayer}>
-          {timed.map((item) => (
-            <div
+    <div
+      className={[
+        styles.cell,
+        !isSameMonth(day, month) ? styles.cellOtherMonth : '',
+        isToday(day) ? styles.cellToday : '',
+        isSameDay(day, selectedDay) ? styles.cellSelected : '',
+      ].join(' ')}
+      onClick={() => onSelect(day)}
+      onDoubleClick={(e) => { e.stopPropagation(); onAdd(day); }}
+      {...longPress}
+    >
+      <span className={styles.cellNum}>{format(day, 'd')}</span>
+      <div className={styles.cellChips}>
+        {items.slice(0, 3).map((item) => {
+          const { r, g, b } = hexToRgb(item.color);
+          return (
+            <span
               key={item.id}
-              className={styles.eventBlock}
+              className={styles.eventBar}
               style={{
-                top: topPx(item),
-                height: heightPx(item),
-                background: itemColor(item, item.type === 'reminder' ? 0.2 : 1),
-                borderLeft: `3px solid ${item.color}`,
-                color: item.type === 'event' ? '#fff' : item.color,
+                background: item.type === 'event'
+                  ? item.color
+                  : `rgba(${r},${g},${b},0.35)`,
+                border: item.type === 'reminder' ? `1px solid ${item.color}` : 'none',
               }}
-              onClick={() => onEdit(item)}
-            >
-              <span className={styles.eventBlockTitle}>{item.title}</span>
-              {item.end_at && (
-                <span className={styles.eventBlockTime}>
-                  {format(parseISO(item.start_at), 'h:mm')}–{format(parseISO(item.end_at), 'h:mm a')}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
+            />
+          );
+        })}
+        {items.length > 3 && (
+          <span className={styles.chipMore}>+{items.length - 3}</span>
+        )}
       </div>
     </div>
   );
 }
 
-// ── Item card (all-day) ───────────────────────────────────────────────────
-function ItemCard({ item, onEdit, onDelete }: {
+// ── DayEventList — uses shared EventListRow ───────────────────────────────
+function DayEventList({ items, onView }: {
+  items: CalendarItem[];
+  onView: (item: CalendarItem) => void;
+}) {
+  const sorted = [...items].sort((a, b) => {
+    if (a.all_day !== b.all_day) return a.all_day ? -1 : 1;
+    return a.start_at.localeCompare(b.start_at);
+  });
+  return (
+    <div className={styles.eventList}>
+      {sorted.map((item) => (
+        <EventListRow key={item.id} item={item} onClick={() => onView(item)} />
+      ))}
+    </div>
+  );
+}
+
+// ── Item Detail Sheet — wraps shared EventDetailBody in a bottom sheet ────
+function ItemDetailSheet({ item, onEdit, onDelete, onClose }: {
   item: CalendarItem;
-  onEdit: (item: CalendarItem) => void;
+  onEdit: () => void;
   onDelete: (id: string) => void;
+  onClose: () => void;
 }) {
   return (
-    <div
-      className={styles.itemCard}
-      style={{
-        background: itemColor(item, item.type === 'reminder' ? 0.15 : 1),
-        borderLeft: `3px solid ${item.color}`,
-        color: item.type === 'event' ? '#fff' : item.color,
-      }}
-    >
-      <span className={styles.itemCardTitle}>{item.title}</span>
-      <div className={styles.itemCardActions}>
-        <button onClick={() => onEdit(item)}><Pencil size={12} /></button>
-        <button onClick={() => { if (confirm(`Delete "${item.title}"?`)) onDelete(item.id); }}><Trash2 size={12} /></button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', padding: 'var(--sp-2) 0' }}>
+      <div className="modal-handle" />
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn btn--ghost btn--icon" style={{ width: 32, height: 32 }} onClick={onClose}>
+          <X size={16} />
+        </button>
       </div>
+      <EventDetailBody
+        item={item}
+        onEdit={onEdit}
+        onDelete={() => onDelete(item.id)}
+      />
     </div>
   );
 }
 
 // ── Add/Edit form ─────────────────────────────────────────────────────────
-function ItemForm({ existing, defaultDate, memberId, onClose }: {
+export function ItemForm({ existing, defaultDate, memberId, onClose }: {
   existing?: CalendarItem;
   defaultDate: Date;
   memberId: string | null;
   onClose: () => void;
 }) {
   const { addItem, updateItem } = useCalendarStore();
-
   const dateStr = format(defaultDate, 'yyyy-MM-dd');
+
   const [itemType,  setItemType]  = useState<'event' | 'reminder'>(existing?.type ?? 'event');
   const [title,     setTitle]     = useState(existing?.title ?? '');
   const [color,     setColor]     = useState(existing?.color ?? EVENT_COLORS[0]);
@@ -320,14 +359,17 @@ function ItemForm({ existing, defaultDate, memberId, onClose }: {
   const [startTime, setStartTime] = useState(existing && !existing.all_day ? format(parseISO(existing.start_at), 'HH:mm') : '09:00');
   const [endDate,   setEndDate]   = useState(existing?.end_at ? format(parseISO(existing.end_at), 'yyyy-MM-dd') : dateStr);
   const [endTime,   setEndTime]   = useState(existing?.end_at ? format(parseISO(existing.end_at), 'HH:mm') : '10:00');
+  const [hasEnd,    setHasEnd]    = useState(!!existing?.end_at);
   const [repeat,    setRepeat]    = useState<RepeatRule>(existing?.repeat ?? 'none');
   const [notes,     setNotes]     = useState(existing?.notes ?? '');
   const [remCat,    setRemCat]    = useState<ReminderCategory>(existing?.reminder_category ?? 'personal');
   const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+    setError(null);
     setSaving(true);
 
     const startIso = allDay
@@ -335,10 +377,10 @@ function ItemForm({ existing, defaultDate, memberId, onClose }: {
       : new Date(`${startDate}T${startTime}:00`).toISOString();
 
     const endIso = (() => {
-      if (allDay) {
-        return startDate !== endDate ? new Date(`${endDate}T23:59:59`).toISOString() : null;
-      }
-      return endTime ? new Date(`${endDate}T${endTime}:00`).toISOString() : null;
+      // Events always have an end; reminders only if toggled
+      if (itemType !== 'event' && !hasEnd) return null;
+      if (allDay) return new Date(`${endDate}T23:59:59`).toISOString();
+      return new Date(`${endDate}T${endTime}:00`).toISOString();
     })();
 
     const payload: Omit<CalendarItem, 'id' | 'created_at'> = {
@@ -355,12 +397,11 @@ function ItemForm({ existing, defaultDate, memberId, onClose }: {
     };
 
     try {
-      if (existing) {
-        await updateItem(existing.id, payload);
-      } else {
-        await addItem(payload);
-      }
+      if (existing) { await updateItem(existing.id, payload); }
+      else          { await addItem(payload); }
       onClose();
+    } catch (err: unknown) {
+      setError((err as { message?: string })?.message ?? 'Error al guardar');
     } finally {
       setSaving(false);
     }
@@ -375,21 +416,12 @@ function ItemForm({ existing, defaultDate, memberId, onClose }: {
         </button>
       </div>
 
-      {/* Event / Reminder toggle */}
       {!existing && (
         <div className={styles.typeToggle}>
-          <button
-            type="button"
-            className={`${styles.typeBtn} ${itemType === 'event' ? styles.typeBtnActive : ''}`}
-            onClick={() => setItemType('event')}
-          >
+          <button type="button" className={`${styles.typeBtn} ${itemType === 'event' ? styles.typeBtnActive : ''}`} onClick={() => setItemType('event')}>
             <Calendar size={14} /> Event
           </button>
-          <button
-            type="button"
-            className={`${styles.typeBtn} ${itemType === 'reminder' ? styles.typeBtnActive : ''}`}
-            onClick={() => setItemType('reminder')}
-          >
+          <button type="button" className={`${styles.typeBtn} ${itemType === 'reminder' ? styles.typeBtnActive : ''}`} onClick={() => setItemType('reminder')}>
             <Bell size={14} /> Reminder
           </button>
         </div>
@@ -402,23 +434,26 @@ function ItemForm({ existing, defaultDate, memberId, onClose }: {
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Add title…" required autoFocus />
         </div>
 
-        {/* Color (events only get solid colors, reminders use same palette shown translucent) */}
+        {/* Color */}
         <div className="field">
           <label>Color</label>
           <div className={styles.colorRow}>
-            {EVENT_COLORS.map((c) => (
-              <button
-                key={c} type="button"
-                className={styles.colorSwatch}
-                style={{
-                  background: itemType === 'event' ? c : `rgba(${parseInt(c.slice(1,3),16)},${parseInt(c.slice(3,5),16)},${parseInt(c.slice(5,7),16)},0.35)`,
-                  outline: color === c ? '2px solid var(--text)' : '2px solid transparent',
-                  outlineOffset: 2,
-                  border: `2px solid ${c}`,
-                }}
-                onClick={() => setColor(c)}
-              />
-            ))}
+            {EVENT_COLORS.map((c) => {
+              const { r, g, b } = hexToRgb(c);
+              return (
+                <button
+                  key={c} type="button"
+                  className={styles.colorSwatch}
+                  style={{
+                    background: itemType === 'event' ? c : `rgba(${r},${g},${b},0.35)`,
+                    outline: color === c ? '2px solid var(--text)' : '2px solid transparent',
+                    outlineOffset: 2,
+                    border: `2px solid ${c}`,
+                  }}
+                  onClick={() => setColor(c)}
+                />
+              );
+            })}
           </div>
         </div>
 
@@ -428,7 +463,7 @@ function ItemForm({ existing, defaultDate, memberId, onClose }: {
           <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
         </label>
 
-        {/* Dates */}
+        {/* Start */}
         <div className={styles.dateRow}>
           <div className="field" style={{ flex: 1 }}>
             <label>Start date</label>
@@ -442,8 +477,14 @@ function ItemForm({ existing, defaultDate, memberId, onClose }: {
           )}
         </div>
 
-        {/* End date/time — for events always shown; for reminders only when not all-day */}
-        {(itemType === 'event' || !allDay) && (
+        {/* End — always shown for events; optional toggle for reminders */}
+        {itemType === 'reminder' && (
+          <label className={styles.toggleRow}>
+            <span>End time</span>
+            <input type="checkbox" checked={hasEnd} onChange={(e) => setHasEnd(e.target.checked)} />
+          </label>
+        )}
+        {(itemType === 'event' || hasEnd) && (
           <div className={styles.dateRow}>
             <div className="field" style={{ flex: 1 }}>
               <label>End date</label>
@@ -486,6 +527,9 @@ function ItemForm({ existing, defaultDate, memberId, onClose }: {
           <textarea className="input" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes…" style={{ resize: 'none' }} />
         </div>
 
+        {error && (
+          <p style={{ color: 'var(--danger)', fontSize: 13, margin: '0 0 8px' }}>{error}</p>
+        )}
         <div className={styles.formActions}>
           <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn btn--primary" disabled={saving || !title.trim()}>

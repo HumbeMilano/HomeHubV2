@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ShoppingItem } from '../../types';
 import { useShoppingStore } from '../../store/shoppingStore';
-import { useAuthStore } from '../../store/authStore';
 import styles from './ItemInput.module.css';
 
 interface Props {
@@ -12,7 +11,6 @@ interface Props {
 
 export default function ItemInput({ listId, listItems, allItems }: Props) {
   const { addItem, uncheckItem } = useShoppingStore();
-  const { activeMember } = useAuthStore();
 
   const [value, setValue] = useState('');
   const [open, setOpen] = useState(false);

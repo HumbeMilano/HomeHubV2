@@ -13,29 +13,31 @@
 .heading {
   font-size: var(--text-xl);
   font-weight: 700;
+  letter-spacing: -0.5px;
   color: var(--text);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--sp-5);
+  gap: var(--sp-4);
 }
 
 .card {
   background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-xl);
   padding: var(--sp-6) var(--sp-4) var(--sp-4);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-3);
-  transition: border-color var(--transition);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition);
 }
 
 .card:hover {
-  border-color: var(--color-members);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .avatar {
@@ -81,13 +83,6 @@
   color: var(--text-3);
 }
 
-.emptyIcon {
-  font-size: 48px;
-}
-
-/* Kiosk (tablet landscape) */
 @media (min-width: 1024px) {
-  .grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 }

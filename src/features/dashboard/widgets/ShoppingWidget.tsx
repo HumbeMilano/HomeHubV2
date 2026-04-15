@@ -1,19 +1,36 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { Plus } from 'lucide-react';
 import { useShoppingStore } from '../../../store/shoppingStore';
 import { useAuthStore } from '../../../store/authStore';
 import styles from './ShoppingWidget.module.css';
 
 export default function ShoppingWidget() {
-  const { lists, items, fetchAll, toggleItem } = useShoppingStore();
+  const { lists, items, fetchAll, toggleItem, addItem } = useShoppingStore();
   const { activeMember } = useAuthStore();
+  const [newItem, setNewItem] = useState('');
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const memberId = activeMember?.id ?? null;
-  const featured = lists.find((l) => l.is_featured);
+  const memberId  = activeMember?.id ?? null;
+  const featured  = lists.find((l) => l.is_featured);
   const listItems = featured ? items.filter((i) => i.list_id === featured.id) : [];
   const unchecked = listItems.filter((i) => !i.checked);
   const checked   = listItems.filter((i) => i.checked);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newItem.trim() || !featured) return;
+    await addItem({
+      list_id:    featured.id,
+      name:       newItem.trim(),
+      category:   null,
+      quantity:   null,
+      checked:    false,
+      checked_by: null,
+      checked_at: null,
+    });
+    setNewItem('');
+  }
 
   if (!featured) {
     return (
@@ -31,6 +48,7 @@ export default function ShoppingWidget() {
         {featured.name}
         <span className={styles.count}>{unchecked.length}/{listItems.length}</span>
       </h3>
+
       <ul className={styles.list}>
         {unchecked.map((item) => (
           <li
@@ -54,6 +72,18 @@ export default function ShoppingWidget() {
           </li>
         ))}
       </ul>
+
+      <form className={styles.addRow} onSubmit={handleAdd}>
+        <input
+          className={styles.addInput}
+          placeholder="Add item…"
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+        />
+        <button type="submit" className={styles.addBtn} disabled={!newItem.trim()}>
+          <Plus size={14} />
+        </button>
+      </form>
     </div>
   );
 }
