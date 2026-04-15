@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
+import { Plus, CheckCircle2, Circle } from 'lucide-react';
 import type { Chore } from '../../types';
 import { useChoresStore } from '../../store/choresStore';
 import { useAuthStore } from '../../store/authStore';
@@ -15,7 +16,6 @@ export default function ChoresPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Supabase Realtime subscription for cross-device sync
   useEffect(() => {
     return subscribeToTable<Chore>({
       table: 'chores',
@@ -40,64 +40,55 @@ export default function ChoresPage() {
     );
   }
 
-  const grouped = groupByCategory(chores);
+  const todo = chores.filter((c) => !isDoneToday(c));
+  const done = chores.filter((c) => isDoneToday(c));
 
   return (
     <div className={styles.root}>
-      <div className={styles.header}>
-        <h2 className={styles.heading}>Chores</h2>
-        <button className="btn btn--primary" onClick={() => setModal({})}>+ Add chore</button>
+      <div className={styles.toolbar}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+          <h2 className={styles.heading}>Chores</h2>
+        </div>
+        <button
+          className="btn btn--primary"
+          style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+          onClick={() => setModal({})}
+        >
+          <Plus size={14} /> Add chore
+        </button>
       </div>
 
-      {Object.entries(grouped).map(([category, items]) => (
-        <section key={category} className={styles.section}>
-          <h3 className={styles.categoryLabel}>{category}</h3>
-          <div className={styles.list}>
-            {items.map((chore) => {
-              const done = isDoneToday(chore);
-              return (
-                <div
-                  key={chore.id}
-                  className={`${styles.choreRow} ${done ? styles.choreDone : ''}`}
-                >
-                  <button
-                    className={`${styles.checkBtn} ${done ? styles.checkBtnDone : ''}`}
-                    onClick={() => activeMember && toggleComplete(chore.id, activeMember.id, today)}
-                    title={done ? 'Mark incomplete' : 'Mark done'}
-                  >
-                    {done ? '✓' : ''}
-                  </button>
-                  <div className={styles.choreInfo}>
-                    <span className={styles.choreTitle}>{chore.title}</span>
-                    <span className={styles.choreMeta}>
-                      {chore.recurrence_rule === 'none' ? 'One-time' : chore.recurrence_rule}
-                      {chore.rotation_enabled ? ' · rotating' : ''}
-                    </span>
-                  </div>
-                  <button
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => setModal({ chore })}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => { if (confirm(`Delete "${chore.title}"?`)) deleteChore(chore.id); }}
-                    style={{ color: 'var(--danger)' }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
-
-      {chores.length === 0 && (
-        <div style={{ textAlign: 'center', color: 'var(--text-3)', paddingTop: '80px' }}>
+      {chores.length === 0 ? (
+        <div className={styles.empty}>
           <div style={{ fontSize: 48 }}>✅</div>
-          <p style={{ marginTop: 'var(--sp-4)' }}>No chores yet. Add one to get started.</p>
+          <p>No chores yet. Add one to get started.</p>
+        </div>
+      ) : (
+        <div className={styles.kanban}>
+          <KanbanColumn
+            title="To Do"
+            chores={todo}
+            accentColor="var(--color-chores)"
+            isDoneToday={isDoneToday}
+            onToggle={(id) => {
+              if (!activeMember) { alert('Select a household member first (Settings → Members).'); return; }
+              toggleComplete(id, activeMember.id, today).catch((e) => alert(`Could not save: ${e?.message ?? e}`));
+            }}
+            onEdit={(chore) => setModal({ chore })}
+            onDelete={(id, title) => { if (confirm(`Delete "${title}"?`)) deleteChore(id); }}
+          />
+          <KanbanColumn
+            title="Done"
+            chores={done}
+            accentColor="var(--success)"
+            isDoneToday={isDoneToday}
+            onToggle={(id) => {
+              if (!activeMember) { alert('Select a household member first (Settings → Members).'); return; }
+              toggleComplete(id, activeMember.id, today).catch((e) => alert(`Could not save: ${e?.message ?? e}`));
+            }}
+            onEdit={(chore) => setModal({ chore })}
+            onDelete={(id, title) => { if (confirm(`Delete "${title}"?`)) deleteChore(id); }}
+          />
         </div>
       )}
 
@@ -112,10 +103,66 @@ export default function ChoresPage() {
   );
 }
 
-function groupByCategory(chores: Chore[]): Record<string, Chore[]> {
-  return chores.reduce<Record<string, Chore[]>>((acc, chore) => {
-    const key = chore.category ?? 'General';
-    (acc[key] ??= []).push(chore);
-    return acc;
-  }, {});
+interface KanbanColumnProps {
+  title: string;
+  chores: Chore[];
+  accentColor: string;
+  isDoneToday: (chore: Chore) => boolean;
+  onToggle: (id: string) => void;
+  onEdit: (chore: Chore) => void;
+  onDelete: (id: string, title: string) => void;
+}
+
+function KanbanColumn({ title, chores, accentColor, isDoneToday, onToggle, onEdit, onDelete }: KanbanColumnProps) {
+  return (
+    <div className={styles.column}>
+      <div className={styles.columnHeader}>
+        <span className={styles.columnDot} style={{ background: accentColor }} />
+        <span className={styles.columnTitle}>{title}</span>
+        <span className={styles.columnCount}>{chores.length}</span>
+      </div>
+      <div className={styles.columnBody}>
+        {chores.length === 0 && (
+          <p className={styles.columnEmpty}>
+            {title === 'To Do' ? 'All done!' : 'Nothing completed yet.'}
+          </p>
+        )}
+        {chores.map((chore) => {
+          const done = isDoneToday(chore);
+          return (
+            <div key={chore.id} className={`${styles.choreCard} ${done ? styles.choreCardDone : ''}`}>
+              <button
+                className={`${styles.toggleBtn} ${done ? styles.toggleBtnDone : ''}`}
+                onClick={() => onToggle(chore.id)}
+                title={done ? 'Mark incomplete' : 'Mark done'}
+                style={done ? { borderColor: accentColor, background: accentColor } : {}}
+              >
+                {done
+                  ? <CheckCircle2 size={18} color="#fff" />
+                  : <Circle size={18} color="var(--text-3)" />
+                }
+              </button>
+              <div className={styles.choreInfo}>
+                <span className={styles.choreTitle}>{chore.title}</span>
+                {chore.recurrence_rule && chore.recurrence_rule !== 'none' && (
+                  <span className={styles.choreMeta}>{chore.recurrence_rule}</span>
+                )}
+              </div>
+              <div className={styles.choreActions}>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => onEdit(chore)}
+                >Edit</button>
+                <button
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => onDelete(chore.id, chore.title)}
+                  style={{ color: 'var(--danger)' }}
+                >✕</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { FileText, Plus, GripVertical, X } from 'lucide-react';
 import type { Note } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -9,7 +10,7 @@ import styles from './NotesPage.module.css';
 
 const bc = createBroadcastChannel<Note>('notes');
 
-const NOTE_COLORS = ['#facc15','#34d399','#60a5fa','#f472b6','#fb923c','#a78bfa','#f87171'];
+const NOTE_COLORS = ['#e9d97a','#7ecfaa','#7ab8e8','#d97ab8','#e8a870','#a889d4','#e87a7a'];
 const DEFAULT_WIDTH = 200;
 const DEFAULT_HEIGHT = 160;
 
@@ -75,8 +76,10 @@ export default function NotesPage() {
   return (
     <div className={styles.root}>
       <div className={styles.toolbar}>
-        <h2 className={styles.heading}>Notes</h2>
-        <button className="btn btn--primary" onClick={addNote}>+ New note</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+          <h2 className={styles.heading}>Notes</h2>
+        </div>
+        <button className="btn btn--primary" style={{ display:'flex', alignItems:'center', gap:4 }} onClick={addNote}><Plus size={14} /> New note</button>
       </div>
       <div className={styles.board} ref={boardRef}>
         {notes.map((note) => (
@@ -89,7 +92,7 @@ export default function NotesPage() {
         ))}
         {notes.length === 0 && (
           <div className={styles.empty}>
-            <div style={{ fontSize: 48 }}>📝</div>
+            <FileText size={48} />
             <p>Click "+ New note" to add a sticky note</p>
           </div>
         )}
@@ -108,41 +111,72 @@ function NoteCard({ note, onUpdate, onDelete }: NoteCardProps) {
   const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  function onMouseDown(e: React.MouseEvent) {
-    if ((e.target as HTMLElement).tagName === 'TEXTAREA') return; // let textarea handle its own events
-    e.preventDefault();
+  function startDrag(startX: number, startY: number) {
     dragState.current = {
-      startX: e.clientX,
-      startY: e.clientY,
+      startX,
+      startY,
       origX: note.position_x,
       origY: note.position_y,
     };
+  }
 
-    function onMove(me: MouseEvent) {
-      if (!dragState.current) return;
-      const dx = me.clientX - dragState.current.startX;
-      const dy = me.clientY - dragState.current.startY;
-      if (cardRef.current) {
-        cardRef.current.style.left = `${dragState.current.origX + dx}px`;
-        cardRef.current.style.top = `${dragState.current.origY + dy}px`;
-      }
+  function moveDrag(clientX: number, clientY: number) {
+    if (!dragState.current) return;
+    const dx = clientX - dragState.current.startX;
+    const dy = clientY - dragState.current.startY;
+    if (cardRef.current) {
+      cardRef.current.style.left = `${dragState.current.origX + dx}px`;
+      cardRef.current.style.top = `${dragState.current.origY + dy}px`;
     }
+  }
 
+  function endDrag(clientX: number, clientY: number) {
+    if (!dragState.current) return;
+    const dx = clientX - dragState.current.startX;
+    const dy = clientY - dragState.current.startY;
+    onUpdate({
+      position_x: Math.max(0, dragState.current.origX + dx),
+      position_y: Math.max(0, dragState.current.origY + dy),
+    });
+    dragState.current = null;
+  }
+
+  function onMouseDown(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).tagName === 'TEXTAREA') return;
+    e.preventDefault();
+    startDrag(e.clientX, e.clientY);
+
+    function onMove(me: MouseEvent) { moveDrag(me.clientX, me.clientY); }
     function onUp(me: MouseEvent) {
-      if (!dragState.current) return;
-      const dx = me.clientX - dragState.current.startX;
-      const dy = me.clientY - dragState.current.startY;
-      onUpdate({
-        position_x: Math.max(0, dragState.current.origX + dx),
-        position_y: Math.max(0, dragState.current.origY + dy),
-      });
-      dragState.current = null;
+      endDrag(me.clientX, me.clientY);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     }
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+  }
+
+  function onTouchStart(e: React.TouchEvent) {
+    if ((e.target as HTMLElement).tagName === 'TEXTAREA') return;
+    e.preventDefault(); // prevent scroll while dragging
+    const touch = e.touches[0];
+    startDrag(touch.clientX, touch.clientY);
+
+    function onMove(te: TouchEvent) {
+      if (!te.touches[0]) return;
+      te.preventDefault();
+      moveDrag(te.touches[0].clientX, te.touches[0].clientY);
+    }
+    function onEnd(te: TouchEvent) {
+      const t = te.changedTouches[0];
+      endDrag(t.clientX, t.clientY);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    }
+
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
   }
 
   return (
@@ -157,14 +191,15 @@ function NoteCard({ note, onUpdate, onDelete }: NoteCardProps) {
         background: note.color,
       }}
       onMouseDown={onMouseDown}
+      onTouchStart={onTouchStart}
     >
       <div className={styles.noteHandle}>
-        <span className={styles.noteGrip}>⋮⋮</span>
+        <GripVertical size={14} style={{ color: 'rgba(0,0,0,.3)', flexShrink: 0 }} />
         <button
           className={styles.noteDelete}
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           title="Delete note"
-        >✕</button>
+        ><X size={12} /></button>
       </div>
       <textarea
         className={styles.noteText}

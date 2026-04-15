@@ -26,7 +26,6 @@ export default function ChoreForm({ defaultStartTime, onClose, existing }: Props
   const [description, setDescription] = useState(existing?.description ?? '');
   const [category, setCategory] = useState(existing?.category ?? '');
   const [recurrence, setRecurrence] = useState<RecurrenceRule>(existing?.recurrence_rule ?? 'weekly');
-  const [rotationEnabled, setRotationEnabled] = useState(existing?.rotation_enabled ?? true);
   const [saving, setSaving] = useState(false);
 
   // The start time shown in the form comes directly from the cell click —
@@ -41,14 +40,13 @@ export default function ChoreForm({ defaultStartTime, onClose, existing }: Props
     setSaving(true);
     try {
       if (existing) {
-        await updateChore(existing.id, { title, description: description || null, category: category || null, recurrence_rule: recurrence, rotation_enabled: rotationEnabled });
+        await updateChore(existing.id, { title, description: description || null, category: category || null, recurrence_rule: recurrence });
       } else {
         await addChore({
           title,
           description: description || null,
           category: category || null,
           recurrence_rule: recurrence,
-          rotation_enabled: rotationEnabled,
           created_by: activeMember?.id ?? null,
         });
       }
@@ -131,17 +129,6 @@ export default function ChoreForm({ defaultStartTime, onClose, existing }: Props
           ))}
         </select>
       </div>
-
-      <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', cursor: 'pointer' }}>
-        <input
-          type="checkbox"
-          checked={rotationEnabled}
-          onChange={(e) => setRotationEnabled(e.target.checked)}
-        />
-        <span style={{ fontSize: 'var(--text-sm)' }}>
-          Rotate assignment among household members
-        </span>
-      </label>
 
       <div style={{ display: 'flex', gap: 'var(--sp-3)', justifyContent: 'flex-end', marginTop: 'var(--sp-2)' }}>
         <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>

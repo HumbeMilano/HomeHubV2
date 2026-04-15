@@ -1,0 +1,32 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--sp-4);
+  gap: var(--sp-3);
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.label {
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+
+.income  { font-size: var(--text-base); font-weight: 600; color: var(--success); }
+.expense { font-size: var(--text-base); font-weight: 600; color: var(--danger); }
+
+.divider {
+  height: 0.5px;
+  background: var(--border);
+}

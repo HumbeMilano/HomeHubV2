@@ -1,33 +1,22 @@
 /* ─────────────────────────────────────────────────────────────────────────
    HomeHub — Kiosk / Tablet overrides
    Applied via @media (min-width: 1024px) and landscape orientation.
-   The kiosk tablet always shows the sidebar; the bottom nav is hidden.
+   The kiosk tablet always shows the slim sidebar; the bottom dock is hidden.
 ──────────────────────────────────────────────────────────────────────────── */
 
 @media (min-width: 1024px) {
-  /* Widen sidebar */
+  /* Slim sidebar always visible */
   .sidebar {
-    width: 240px;
+    display: flex;
   }
 
-  /* Larger page padding */
-  .page-area {
-    padding: var(--sp-8);
+  .main-content {
+    margin-left: var(--sidebar-width);
   }
 
-  /* Topbar taller */
-  .topbar {
-    height: 64px;
-  }
-
-  /* Dashboard tile grid — more columns on large screens */
-  .dashboard-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  /* Calendar weekly view — show full 7 days without scroll */
-  .week-view {
-    overflow-x: visible;
+  /* Bottom dock hidden on desktop/tablet */
+  .bottom-dock {
+    display: none !important;
   }
 
   /* Modals become centered dialogs, not bottom sheets */

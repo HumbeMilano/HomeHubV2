@@ -1,138 +1,160 @@
+import {
+  Home, CalendarDays, ShoppingCart, Wallet,
+  FileText, CheckSquare, Settings, Sun, Moon,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from './store/authStore';
 import { useAppStore } from './store/appStore';
-import type { AppPage } from './types';
-import LockScreen from './features/lockscreen/LockScreen';
+import type { AppPage, Member } from './types';
 import Dashboard from './features/dashboard/Dashboard';
 import CalendarPage from './features/calendar/CalendarPage';
-import ChoresPage from './features/chores/ChoresPage';
 import ShoppingPage from './features/shopping/ShoppingPage';
-import RemindersPage from './features/reminders/RemindersPage';
 import FinancePage from './features/finance/FinancePage';
 import NotesPage from './features/notes/NotesPage';
+import ChoresPage from './features/chores/ChoresPage';
+import PageTransition from './components/PageTransition';
+import SettingsPanel from './components/SettingsPanel';
 
-const PAGES: Record<AppPage, { label: string; icon: string }> = {
-  dashboard:  { label: 'Dashboard',  icon: '🏠' },
-  calendar:   { label: 'Calendar',   icon: '📅' },
-  chores:     { label: 'Chores',     icon: '✅' },
-  shopping:   { label: 'Shopping',   icon: '🛒' },
-  reminders:  { label: 'Reminders',  icon: '🔔' },
-  finance:    { label: 'Finance',    icon: '💰' },
-  notes:      { label: 'Notes',      icon: '📝' },
-  members:    { label: 'Members',    icon: '👥' },
-};
+const NAV_PAGES: { page: AppPage; label: string; icon: LucideIcon }[] = [
+  { page: 'dashboard', label: 'Home',     icon: Home },
+  { page: 'calendar',  label: 'Calendar', icon: CalendarDays },
+  { page: 'finance',   label: 'Finance',  icon: Wallet },
+  { page: 'shopping',  label: 'Shopping', icon: ShoppingCart },
+  { page: 'notes',     label: 'Notes',    icon: FileText },
+  { page: 'chores',    label: 'Chores',   icon: CheckSquare },
+];
 
 export default function App() {
-  const { isLocked } = useAuthStore();
-  const { currentPage, navigate } = useAppStore();
-
-  if (isLocked) {
-    return <LockScreen />;
-  }
+  const { activeMember } = useAuthStore();
+  const { currentPage, navigate, settingsOpen, setSettingsOpen, theme, setTheme } = useAppStore();
 
   return (
     <div className="app-shell">
-      <Sidebar currentPage={currentPage} onNavigate={navigate} />
-      <div className="main-content">
-        <Topbar title={PAGES[currentPage].label} />
+      {/* Slim icon sidebar — desktop */}
+      <SlimSidebar
+        currentPage={currentPage}
+        onNavigate={navigate}
+        onSettings={() => setSettingsOpen(true)}
+        activeMember={activeMember}
+        theme={theme}
+        onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      />
+
+      {/* Main content */}
+      <main className="main-content">
         <div className="page-area">
-          <PageRouter page={currentPage} />
+          <PageTransition page={currentPage}>
+            <PageRouter page={currentPage} />
+          </PageTransition>
         </div>
-        <BottomNav currentPage={currentPage} onNavigate={navigate} />
-      </div>
+      </main>
+
+      {/* Floating pill dock — mobile */}
+      <BottomDock currentPage={currentPage} onNavigate={navigate} />
+
+      {/* Settings / members panel */}
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }
 
-
-function Sidebar({ currentPage, onNavigate }: { currentPage: AppPage; onNavigate: (p: AppPage) => void }) {
+/* ── Slim sidebar (desktop, icon-only) ────────────────────────────────────── */
+function SlimSidebar({ currentPage, onNavigate, onSettings, activeMember, theme, onThemeToggle }: {
+  currentPage: AppPage;
+  onNavigate: (p: AppPage) => void;
+  onSettings: () => void;
+  activeMember: Member | null;
+  theme: string;
+  onThemeToggle: () => void;
+}) {
   return (
     <nav className="sidebar">
-      <div style={{ padding: '0 var(--sp-5) var(--sp-6)', borderBottom: '1px solid var(--border)', marginBottom: 'var(--sp-3)' }}>
-        <span style={{ fontWeight: 700, fontSize: 'var(--text-md)' }}>🏠 HomeHub</span>
-      </div>
-      {(Object.keys(PAGES) as AppPage[]).map((page) => (
+      {/* Member avatar — first item */}
+      <button
+        className="nav-item"
+        onClick={onSettings}
+        title={activeMember ? activeMember.name : 'Settings'}
+        style={activeMember ? {
+          background: activeMember.color,
+          borderRadius: '50%',
+          width: 32,
+          height: 32,
+          fontSize: 12,
+          fontWeight: 700,
+          color: '#fff',
+          overflow: 'hidden',
+          padding: 0,
+        } : undefined}
+      >
+        {activeMember
+          ? (activeMember.avatar_url
+              ? <img src={activeMember.avatar_url} alt={activeMember.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : activeMember.name.slice(0, 2).toUpperCase())
+          : <Settings size={18} />}
+      </button>
+
+      <div className="sidebar-spacer" style={{ maxHeight: 8 }} />
+
+      {/* Nav items */}
+      {NAV_PAGES.map(({ page, icon: Icon }) => (
         <button
           key={page}
           className={`nav-item${currentPage === page ? ' active' : ''}`}
           onClick={() => onNavigate(page)}
+          title={NAV_PAGES.find(n => n.page === page)?.label}
         >
-          <span className="nav-item__icon">{PAGES[page].icon}</span>
-          {PAGES[page].label}
+          <Icon size={20} />
         </button>
       ))}
+
+      <div className="sidebar-spacer" />
+
+      {/* Theme toggle */}
+      <button
+        className="nav-item"
+        onClick={onThemeToggle}
+        title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+      >
+        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
+
+      {/* Settings */}
+      <button className="nav-item" onClick={onSettings} title="Settings">
+        <Settings size={18} />
+      </button>
     </nav>
   );
 }
 
-function Topbar({ title }: { title: string }) {
-  const { lock, activeMember } = useAuthStore();
-  const { theme, setTheme } = useAppStore();
+/* ── Floating pill dock (mobile) ─────────────────────────────────────────── */
+function BottomDock({ currentPage, onNavigate }: {
+  currentPage: AppPage;
+  onNavigate: (p: AppPage) => void;
+}) {
   return (
-    <header className="topbar">
-      <span className="topbar__title">{title}</span>
-      <button
-        className="btn btn--ghost btn--icon"
-        title="Toggle theme"
-        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      >
-        {theme === 'dark' ? '☀️' : '🌙'}
-      </button>
-      {activeMember && (
-        <div
-          className="avatar"
-          style={{ background: activeMember.color, cursor: 'pointer' }}
-          title={activeMember.name}
-          onClick={lock}
-        >
-          {activeMember.name.slice(0, 2).toUpperCase()}
-        </div>
-      )}
-    </header>
-  );
-}
-
-function BottomNav({ currentPage, onNavigate }: { currentPage: AppPage; onNavigate: (p: AppPage) => void }) {
-  const mobilePages: AppPage[] = ['dashboard', 'calendar', 'shopping', 'notes', 'finance'];
-  return (
-    <nav className="bottom-nav">
-      {mobilePages.map((page) => (
+    <nav className="bottom-dock">
+      {NAV_PAGES.map(({ page, label, icon: Icon }) => (
         <button
           key={page}
-          style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', gap: '2px', fontSize: 'var(--text-xs)',
-            color: currentPage === page ? 'var(--accent)' : 'var(--text-3)',
-          }}
+          className={`nav-item${currentPage === page ? ' active' : ''}`}
           onClick={() => onNavigate(page)}
+          title={label}
         >
-          <span style={{ fontSize: 20 }}>{PAGES[page].icon}</span>
-          {PAGES[page].label}
+          <Icon size={22} />
+          <span className="nav-item__label">{label}</span>
         </button>
       ))}
     </nav>
   );
 }
 
+/* ── Page router ─────────────────────────────────────────────────────────── */
 function PageRouter({ page }: { page: AppPage }) {
   if (page === 'dashboard') return <Dashboard />;
   if (page === 'calendar')  return <CalendarPage />;
-  if (page === 'chores')    return <ChoresPage />;
   if (page === 'shopping')  return <ShoppingPage />;
-  if (page === 'reminders') return <RemindersPage />;
   if (page === 'finance')   return <FinancePage />;
   if (page === 'notes')     return <NotesPage />;
-  // Other pages built in later phases
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', height: '60vh', gap: 'var(--sp-4)',
-      color: 'var(--text-2)',
-    }}>
-      <span style={{ fontSize: 56 }}>{PAGES[page].icon}</span>
-      <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 600, color: 'var(--text)' }}>
-        {PAGES[page].label}
-      </h2>
-      <p style={{ fontSize: 'var(--text-sm)' }}>Coming soon</p>
-    </div>
-  );
+  if (page === 'chores')    return <ChoresPage />;
+  return null;
 }

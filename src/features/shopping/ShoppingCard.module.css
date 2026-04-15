@@ -1,0 +1,146 @@
+.card {
+  background: var(--bg-2);
+  border-radius: var(--r-widget);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-sm);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-bottom: 0.5px solid var(--border);
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.name {
+  flex: 1;
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  color: var(--text);
+}
+
+.count {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+}
+
+.featuredBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 3px var(--sp-1);
+  border-radius: var(--r-sm);
+  transition: color var(--transition);
+  display: flex;
+  align-items: center;
+}
+
+.featuredBtn:hover { color: var(--warning); }
+.featuredActive { color: var(--warning); }
+
+.deleteBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 3px var(--sp-1);
+  border-radius: var(--r-sm);
+  transition: color var(--transition);
+  display: flex;
+  align-items: center;
+}
+
+.deleteBtn:hover { color: var(--danger); }
+
+.itemList {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-2) 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px var(--sp-4);
+  transition: background var(--transition);
+}
+
+.item:hover { background: var(--bg-3); }
+
+.itemChecked { opacity: 0.45; }
+
+/* iOS-style circular checkbox */
+.checkbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-spring), border-color var(--transition);
+}
+
+.checkbox:hover { border-color: var(--accent); }
+
+.checkboxChecked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.itemName {
+  flex: 1;
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+.itemChecked .itemName {
+  text-decoration: line-through;
+}
+
+.qty {
+  font-size: var(--text-sm);
+  color: var(--text-3);
+}
+
+.itemDelete {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  opacity: 0;
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  transition: opacity var(--transition), color var(--transition);
+  display: flex;
+  align-items: center;
+}
+
+.item:hover .itemDelete { opacity: 1; }
+.itemDelete:hover { color: var(--danger); }
+
+.separator {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  padding: var(--sp-2) var(--sp-4) var(--sp-1);
+  border-top: 0.5px solid var(--border);
+}

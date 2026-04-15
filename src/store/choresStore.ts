@@ -106,7 +106,11 @@ export const useChoresStore = create<ChoresState>((set, get) => ({
         completed_at: new Date().toISOString(),
       };
       set((s) => ({ completions: [row, ...s.completions] }));
-      await supabase.from('chore_completions').insert(row);
+      const { error } = await supabase.from('chore_completions').insert(row);
+      if (error) {
+        set((s) => ({ completions: s.completions.filter((c) => c.id !== row.id) }));
+        throw error;
+      }
     }
     bc.post('COMPLETE', { choreId, scheduledDate });
   },

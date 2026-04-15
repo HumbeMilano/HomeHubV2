@@ -1,0 +1,83 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--sp-4);
+  overflow: hidden;
+}
+
+.sectionLabel {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: 0.08em;
+  margin: 0 0 var(--sp-3);
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  scrollbar-width: none;
+}
+.list::-webkit-scrollbar { display: none; }
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotPaid    { background: var(--success); }
+.dotPending { background: var(--warning); }
+.dotNone    { background: var(--text-3); }
+
+.name {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.namePaid {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+
+.amount {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.empty {
+  font-size: var(--text-sm);
+  color: var(--text-3);
+  text-align: center;
+  margin-top: var(--sp-4);
+}
+
+/* ── Compact mode ──────────────────────────────────────────────────────── */
+@container widget (max-height: 160px) {
+  .root { padding: var(--sp-2) var(--sp-3); }
+  .sectionLabel { margin-bottom: var(--sp-1); }
+  .item { padding: 2px 0; }
+  .name, .amount { font-size: 13px; }
+}
+
+@container widget (max-width: 160px) {
+  .amount { display: none; }
+}

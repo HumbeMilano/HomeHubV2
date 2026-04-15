@@ -1,0 +1,100 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3);
+  flex-shrink: 0;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* Mini sticky board */
+.board {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-3);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Sticky note */
+.note {
+  position: absolute;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  cursor: grab;
+  user-select: none;
+}
+
+.note:active { cursor: grabbing; box-shadow: var(--shadow-lg); }
+
+.noteHandle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px var(--sp-2) 2px;
+}
+
+.grip {
+  font-size: 11px;
+  color: rgba(0,0,0,.3);
+  letter-spacing: -2px;
+}
+
+.del {
+  font-size: 10px;
+  color: rgba(0,0,0,.35);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.del:hover { color: rgba(0,0,0,.8); background: rgba(0,0,0,.1); }
+
+.text {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 2px var(--sp-2) var(--sp-2);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  color: rgba(0,0,0,.88);
+  cursor: text;
+  user-select: text;
+  line-height: 1.4;
+}
+
+.text::placeholder { color: rgba(0,0,0,.4); }
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--text-xs);
+  pointer-events: none;
+}
