@@ -42,6 +42,43 @@
   color: var(--text-2);
 }
 
+/* ── Floating Action Button (FAB) for mobile ────────────────────────────── */
+.fab {
+  position: fixed;
+  bottom: var(--sp-6);
+  right: var(--sp-6);
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0;
+  box-shadow: var(--shadow-lg);
+  transition: transform var(--transition), opacity var(--transition);
+  z-index: var(--z-overlay);
+}
+
+.fab:active {
+  transform: scale(0.93);
+}
+
+@media (max-width: 600px) {
+  .fab {
+    display: flex;
+  }
+}
+
+@media (min-width: 601px) {
+  .fab {
+    display: none;
+  }
+}
+
 /* ── Edit mode actions ───────────────────────────────────────────────────── */
 .actions {
   display: flex;
@@ -166,11 +203,27 @@
 @media (max-width: 600px) {
   .root {
     padding: var(--page-padding);
+    padding-right: calc(var(--page-padding) + 60px); /* Space for hamburger button */
     gap: var(--sp-3);
   }
 
   .greeting {
     font-size: var(--text-lg);
+  }
+
+  .header {
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+  }
+
+  .editToggle {
+    display: none;
+  }
+
+  .actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
   }
 
   .gridWrap {
