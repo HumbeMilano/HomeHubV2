@@ -60,7 +60,7 @@
   font-size: 0;
   box-shadow: var(--shadow-lg);
   transition: transform var(--transition), opacity var(--transition);
-  z-index: var(--z-overlay);
+  z-index: var(--z-modal); /* High z-index to stay above all content including scroll */
 }
 
 .fab:active {
