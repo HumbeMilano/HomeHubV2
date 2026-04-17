@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Photo } from '../../types';
 import { supabase } from '../../lib/supabase';
+import { useAppStore } from '../../store/appStore';
 
 // Fallback gradient backgrounds shown when no photos are uploaded
 const GRADIENTS = [
@@ -11,10 +12,14 @@ const GRADIENTS = [
 ];
 
 interface Props {
-  interval?: number; // ms between slides, default 30000
+  /** Override the store interval (ms). If omitted, reads from appStore. */
+  interval?: number;
 }
 
-export default function PhotoSlideshow({ interval = 30_000 }: Props) {
+export default function PhotoSlideshow({ interval: intervalProp }: Props) {
+  const storeInterval = useAppStore((s) => s.photoSlideInterval);
+  const interval = intervalProp ?? storeInterval;
+
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [index, setIndex] = useState(0);
   const [fade, setFade] = useState(true);

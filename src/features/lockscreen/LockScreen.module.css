@@ -1,3 +1,4 @@
+/* ── Root ─────────────────────────────────────────────────────────────────── */
 .root {
   position: fixed;
   inset: 0;
@@ -5,149 +6,326 @@
   z-index: var(--z-top);
 }
 
-/* Semi-transparent gradient over the photo */
-.overlay {
+/* ── Full-screen grid layout ──────────────────────────────────────────────── */
+.layout {
   position: relative;
   z-index: 2;
   height: 100%;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--sp-12) var(--sp-8);
+  align-items: stretch;
+  /* gradient overlay */
   background: linear-gradient(
-    to bottom,
-    rgba(0,0,0,.55) 0%,
-    rgba(0,0,0,.1) 40%,
-    rgba(0,0,0,.1) 65%,
-    rgba(0,0,0,.7) 100%
+    135deg,
+    rgba(0,0,0,.65) 0%,
+    rgba(0,0,0,.25) 50%,
+    rgba(0,0,0,.5) 100%
   );
 }
 
-/* Clock */
+/* ── Left column: clock + events + PIN ───────────────────────────────────── */
+.leftCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: clamp(28px, 5vw, 56px) clamp(24px, 4vw, 48px);
+  gap: 20px;
+  min-width: 0;
+}
+
+/* ── Clock ────────────────────────────────────────────────────────────────── */
 .clock {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--sp-1);
+  gap: 4px;
   color: #fff;
-  text-shadow: 0 2px 12px rgba(0,0,0,.6);
+  text-shadow: 0 2px 16px rgba(0,0,0,.7);
 }
 
 .time {
-  font-size: 100px;
+  font-size: clamp(64px, 9vw, 110px);
   font-weight: 300;
   line-height: 1;
-  letter-spacing: -2px;
+  letter-spacing: -3px;
   display: inline-flex;
   align-items: flex-end;
-  gap: 6px;
+  gap: 8px;
 }
 
 .ampm {
-  font-size: 36%;
+  font-size: 34%;
   font-weight: 400;
   letter-spacing: 0;
-  padding-bottom: 0.2em;
-  opacity: 0.85;
+  padding-bottom: 0.25em;
+  opacity: 0.8;
 }
 
 .date {
-  font-size: var(--text-lg);
+  font-size: clamp(15px, 2vw, 22px);
   font-weight: 400;
-  opacity: .9;
+  opacity: 0.85;
+  letter-spacing: 0.01em;
 }
 
-/* Quick info */
-.quickInfo {
-  display: flex;
-  gap: var(--sp-5);
-  color: rgba(255,255,255,.85);
-  font-size: var(--text-sm);
-  background: rgba(0,0,0,.3);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,.15);
-  border-radius: var(--r-full);
-  padding: var(--sp-2) var(--sp-5);
-}
-
-/* Member section */
-.memberSection {
+/* ── Events panel ─────────────────────────────────────────────────────────── */
+.eventsPanel {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--sp-5);
-  width: 100%;
+  gap: 8px;
+  background: rgba(0,0,0,.28);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  padding: 12px 16px;
+  max-width: 340px;
 }
 
-.prompt {
-  color: rgba(255,255,255,.8);
-  font-size: var(--text-sm);
-  letter-spacing: .1em;
-  text-transform: uppercase;
-}
-
-.memberGrid {
-  display: flex;
-  gap: var(--sp-8);
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.memberBtn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-2);
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: transform var(--transition);
-}
-
-.memberBtn:hover {
-  transform: translateY(-4px);
-}
-
-.memberAvatar {
-  width: 80px;
-  height: 80px;
-  border-radius: var(--r-full);
+.eventRow {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 26px;
-  font-weight: 700;
-  color: #fff;
-  border: 3px solid rgba(255,255,255,.3);
-  overflow: hidden;
-  box-shadow: var(--shadow-lg);
-  transition: border-color var(--transition), box-shadow var(--transition);
+  gap: 8px;
+  min-height: 22px;
 }
 
-.memberBtn:hover .memberAvatar {
-  border-color: rgba(255,255,255,.8);
-  box-shadow: 0 0 0 4px rgba(255,255,255,.2);
+.eventDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.memberAvatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.eventTime {
+  font-size: 12px;
+  color: rgba(255,255,255,.55);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 44px;
 }
 
-.memberName {
-  color: #fff;
-  font-size: var(--text-sm);
+.eventTitle {
+  font-size: 13px;
   font-weight: 500;
-  text-shadow: 0 1px 4px rgba(0,0,0,.6);
+  color: rgba(255,255,255,.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Tablet landscape: bigger clock, wider member row */
+/* ── Unlock hint (shown when PIN overlay is hidden) ───────────────────────── */
+.unlockHint {
+  position: absolute;
+  bottom: clamp(24px, 4vh, 48px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.38);
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 3;
+}
+
+/* ── PIN overlay (full-screen backdrop, appears on tap) ───────────────────── */
+.pinOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.22);
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  animation: fadeIn 180ms ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── PIN box (frosted card inside overlay) ────────────────────────────────── */
+.pinBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 36px 32px 32px;
+  background: rgba(22,22,24,0.78);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border-radius: var(--r-xl);
+  border: 0.5px solid rgba(255,255,255,0.11);
+  box-shadow: 0 28px 72px rgba(0,0,0,0.55);
+  animation: slideUp 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.pinPrompt {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,.7);
+  letter-spacing: 0.04em;
+  min-height: 18px;
+}
+
+/* ── PIN dots ─────────────────────────────────────────────────────────────── */
+.dots {
+  display: flex;
+  gap: 14px;
+}
+
+.dotsShake {
+  animation: shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes shake {
+  0%   { transform: translateX(0); }
+  15%  { transform: translateX(-7px); }
+  30%  { transform: translateX(6px); }
+  45%  { transform: translateX(-5px); }
+  60%  { transform: translateX(4px); }
+  75%  { transform: translateX(-2px); }
+  90%  { transform: translateX(1px); }
+  100% { transform: translateX(0); }
+}
+
+.dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4);
+  background: transparent;
+  transition: background 160ms, border-color 160ms,
+              transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dotFilled {
+  background: #fff;
+  border-color: #fff;
+  transform: scale(1.15);
+}
+
+.dotError {
+  background: var(--danger);
+  border-color: var(--danger);
+  transform: scale(1.1);
+}
+
+/* ── Numpad ───────────────────────────────────────────────────────────────── */
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.numkey {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  font-size: 26px;
+  font-weight: 300;
+  letter-spacing: -0.5px;
+  background: rgba(255,255,255,.18);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  transition: background 120ms, transform 80ms;
+  position: relative;
+  overflow: hidden;
+}
+
+.numkey:hover { background: rgba(255,255,255,.28); }
+.numkey:active { transform: scale(0.93); background: rgba(255,255,255,.38); }
+
+.numkey::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 300ms;
+}
+
+.numkey:active::after { opacity: 1; transition: opacity 0ms; }
+
+.numkeyEmpty {
+  background: transparent;
+  pointer-events: none;
+}
+
+/* ── Notes panel (right side) ─────────────────────────────────────────────── */
+.notesPanel {
+  width: clamp(200px, 22vw, 280px);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: clamp(28px, 5vw, 56px) clamp(16px, 2vw, 28px) clamp(28px, 5vw, 56px) 0;
+}
+
+.notesPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,.5);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 0 4px;
+}
+
+.notesList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: calc(100vh - 120px);
+}
+
+.noteCard {
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3);
+  min-height: 60px;
+}
+
+.noteContent {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(0,0,0,.75);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Mobile: stack vertically ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .layout { flex-direction: column; }
+  .leftCol { flex: none; padding: 28px 24px 0; }
+  .time { font-size: 72px; }
+  .notesPanel { display: none; }  /* hide notes panel on small screens */
+  .numkey { width: 56px; height: 56px; font-size: 22px; }
+  .eventsPanel { max-width: 100%; }
+  .pinBox { padding: 28px 24px 24px; }
+  .pinOverlay { align-items: flex-end; padding-bottom: 40px; }
+}
+
+/* ── Tablet landscape: bigger everything ─────────────────────────────────── */
 @media (min-width: 1024px) and (orientation: landscape) {
-  .time { font-size: 150px; }
-  .date { font-size: var(--text-xl); }
-  .memberAvatar { width: 96px; height: 96px; }
-  .memberName { font-size: var(--text-base); }
-  .overlay { padding: var(--sp-12) var(--sp-12) var(--sp-10); }
+  .time { font-size: 110px; }
+  .numkey { width: 70px; height: 70px; font-size: 28px; }
 }

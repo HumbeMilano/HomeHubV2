@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { format, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFinanceStore } from '../../store/financeStore';
+import { SkeletonCard } from '../../components/Skeleton';
 import { useMembersStore } from '../../store/membersStore';
 import { fmt } from '../../lib/utils';
 import BillsTab        from './BillsTab';
@@ -25,7 +26,7 @@ const TABS: { id: FinTab; label: string }[] = [
 
 export default function FinancePage() {
   const {
-    fetchAll, workMonth, workYear, setWorkMonth,
+    fetchAll, workMonth, workYear, setWorkMonth, loading, bills,
     getBillsForMonth, getIncomeForMonth, getEffectiveAmount, getPaidCount,
   } = useFinanceStore();
   const { fetchAll: fetchMembers } = useMembersStore();
@@ -49,6 +50,20 @@ export default function FinancePage() {
     const d    = new Date(workYear, workMonth - 1, 1);
     const next = dir === 1 ? addMonths(d, 1) : subMonths(d, 1);
     setWorkMonth(next.getMonth() + 1, next.getFullYear());
+  }
+
+  if (loading && bills.length === 0) {
+    return (
+      <div className={styles.root} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={2} />
+        </div>
+        <SkeletonCard lines={4} />
+        <SkeletonCard lines={5} />
+      </div>
+    );
   }
 
   return (

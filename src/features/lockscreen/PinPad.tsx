@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Member } from '../../types';
+import { supabase } from '../../lib/supabase';
 import styles from './PinPad.module.css';
 
 const PIN_LENGTH = 4;
@@ -8,46 +9,53 @@ interface Props {
   member: Member;
   onSuccess: (member: Member) => void;
   onCancel: () => void;
-  pinError: boolean;
+  /** Optional: controlled error from parent. If undefined, PinPad manages its own state. */
+  pinError?: boolean;
 }
 
-export default function PinPad({ member, onSuccess, onCancel, pinError }: Props) {
+export default function PinPad({ member, onSuccess, onCancel, pinError: externalError }: Props) {
   const [digits, setDigits] = useState<string[]>([]);
+  const [verifying, setVerifying] = useState(false);
+  const [internalError, setInternalError] = useState(false);
+
+  const pinError = externalError ?? internalError;
 
   // Auto-submit when PIN_LENGTH digits entered
   useEffect(() => {
-    if (digits.length === PIN_LENGTH) {
-      const entered = digits.join('');
-      // Compare against stored pin_hash (plain comparison here;
-      // in production use bcrypt via Supabase Edge Function)
-      const stored = (member as unknown as Record<string, string>)['pin'] ?? '';
-      if (entered === stored) {
-        onSuccess(member);
-      } else {
-        // Let parent show error, then reset after brief delay
-        setTimeout(() => setDigits([]), 500);
-      }
-    }
-  }, [digits, member, onSuccess]);
+    if (digits.length !== PIN_LENGTH || verifying) return;
+
+    const entered = digits.join('');
+    setVerifying(true);
+
+    supabase.functions
+      .invoke('verify-pin', { body: { member_id: member.id, pin: entered } })
+      .then(({ data, error }) => {
+        setVerifying(false);
+        if (!error && data?.match) {
+          onSuccess(member);
+        } else {
+          setInternalError(true);
+          setTimeout(() => { setDigits([]); setInternalError(false); }, 900);
+        }
+      });
+  }, [digits, member, onSuccess, verifying]);
 
   function press(key: string) {
-    if (digits.length < PIN_LENGTH) {
+    if (digits.length < PIN_LENGTH && !verifying) {
       setDigits((d) => [...d, key]);
     }
   }
 
   function backspace() {
-    setDigits((d) => d.slice(0, -1));
+    if (!verifying) setDigits((d) => d.slice(0, -1));
   }
+
+  const hintText = verifying ? 'Verifying…' : '';
 
   return (
     <div className={styles.overlay}>
       <div className={styles.card}>
-        {/* Avatar */}
-        <div
-          className={styles.avatar}
-          style={{ background: member.color }}
-        >
+        <div className={styles.avatar} style={{ background: member.color }}>
           {member.avatar_url
             ? <img src={member.avatar_url} alt={member.name} />
             : member.name.slice(0, 2).toUpperCase()
@@ -55,25 +63,26 @@ export default function PinPad({ member, onSuccess, onCancel, pinError }: Props)
         </div>
 
         <p className={styles.name}>{member.name}</p>
-        <p className={styles.hint}>Enter PIN</p>
+        <p className={styles.hint}>{hintText}</p>
 
-        {/* Dots */}
-        <div className={styles.dots}>
+        {/* Dots — error takes priority to avoid double animation */}
+        <div className={`${styles.dots} ${pinError ? styles.dotsError : ''}`}>
           {Array.from({ length: PIN_LENGTH }).map((_, i) => (
             <span
               key={i}
-              className={`${styles.dot} ${i < digits.length ? styles.dotFilled : ''} ${pinError ? styles.dotError : ''}`}
+              className={`${styles.dot} ${pinError ? styles.dotError : i < digits.length ? styles.dotFilled : ''}`}
             />
           ))}
         </div>
 
-        {/* Numpad */}
+        {pinError && <p className={styles.errorMsg}>Incorrect PIN. Try again.</p>}
+
         <div className={styles.grid}>
           {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((key, i) => (
             <button
               key={i}
               className={`${styles.key} ${key === '' ? styles.keyEmpty : ''}`}
-              disabled={key === ''}
+              disabled={key === '' || verifying}
               onClick={() => key === '⌫' ? backspace() : key !== '' && press(key)}
             >
               {key}
@@ -81,9 +90,7 @@ export default function PinPad({ member, onSuccess, onCancel, pinError }: Props)
           ))}
         </div>
 
-        <button className={styles.cancel} onClick={onCancel}>
-          Cancel
-        </button>
+        <button className={styles.cancel} onClick={onCancel}>Cancel</button>
       </div>
     </div>
   );

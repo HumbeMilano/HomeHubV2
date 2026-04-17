@@ -48,6 +48,11 @@
   border-radius: var(--r-sm);
 }
 
+.itemName {
+  flex: 1;
+  cursor: pointer;
+}
+
 .itemClickable {
   cursor: pointer;
   transition: background var(--transition);
@@ -69,22 +74,50 @@
 }
 
 .checkbox {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border: 2px solid var(--border);
-  border-radius: 3px;
+  border-radius: 50%;
+  background: transparent;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 9px;
+  cursor: pointer;
+  transition: border-color var(--transition);
 }
+
+.checkbox:hover { border-color: var(--accent); }
 
 .checkboxDone {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
 }
+
+.qty {
+  font-size: var(--text-xs);
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.itemDelete {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  opacity: 0;
+  padding: 2px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  transition: opacity var(--transition), color var(--transition);
+  flex-shrink: 0;
+}
+
+.item:hover .itemDelete { opacity: 1; }
+.itemDelete:hover { color: var(--danger); }
 
 .empty {
   font-size: var(--text-sm);
@@ -93,47 +126,3 @@
   padding-top: var(--sp-6);
 }
 
-/* ── Quick-add row ─────────────────────────────────────────────────────────── */
-.addRow {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  flex-shrink: 0;
-  padding-top: var(--sp-2);
-  border-top: 0.5px solid var(--border);
-}
-
-.addInput {
-  flex: 1;
-  min-width: 0;
-  height: 34px;
-  background: var(--bg-3);
-  border: none;
-  border-radius: var(--r-md);
-  padding: 0 var(--sp-3);
-  font-size: var(--text-sm);
-  color: var(--text);
-  outline: none;
-}
-
-.addInput::placeholder { color: var(--text-3); }
-
-.addInput:focus { box-shadow: 0 0 0 2px var(--accent-dim); }
-
-.addBtn {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--r-md);
-  background: var(--accent);
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: opacity var(--transition);
-}
-
-.addBtn:disabled { opacity: 0.35; cursor: default; }
-.addBtn:not(:disabled):hover { opacity: 0.88; }

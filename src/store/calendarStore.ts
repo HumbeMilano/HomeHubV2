@@ -23,7 +23,11 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
 
   fetchAll: async () => {
     set({ loading: true });
-    const { data } = await supabase.from('calendar_items').select('*').order('start_at');
+    const { data } = await supabase
+      .from('calendar_items')
+      .select('id,type,title,color,all_day,start_at,end_at,repeat,notes,reminder_category,member_id,created_at')
+      .order('start_at')
+      .limit(500);
     set({ items: (data ?? []) as CalendarItem[], loading: false });
   },
 
@@ -58,7 +62,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   setItems: (items) => set({ items }),
 }));
 
-bc.listen((msg) => {
+const _unsubCalendarBc = bc.listen((msg) => {
   const store = useCalendarStore.getState();
   if (msg.type === 'INSERT') {
     const item = msg.payload as unknown as CalendarItem;
@@ -73,3 +77,4 @@ bc.listen((msg) => {
     store.setItems(store.items.filter((i) => i.id !== id));
   }
 });
+if (import.meta.hot) import.meta.hot.dispose(() => { _unsubCalendarBc(); bc.close(); });

@@ -74,8 +74,11 @@ create table reminders (
   title           text not null,
   body            text,
   due_at          timestamptz not null,
+  end_at          timestamptz,
+  is_all_day      boolean not null default false,
   is_recurring    boolean not null default false,
   recurrence_rule recurrence_rule not null default 'weekly',
+  notes           text,
   member_id       uuid references household_members(id) on delete set null,
   created_at      timestamptz default now()
 );
@@ -86,6 +89,7 @@ create table shopping_lists (
   name           text not null,
   store_category text,
   color          text not null default '#fb923c',
+  is_featured    boolean not null default false,
   created_by     uuid references household_members(id) on delete set null,
   created_at     timestamptz default now()
 );
@@ -140,16 +144,17 @@ create table fin_accounts (
 );
 
 create table fin_bills (
-  id           uuid primary key default gen_random_uuid(),
-  name         text not null,
-  base_amount  numeric not null default 0,
-  type         bill_type not null default 'fixed',
-  category_id  uuid references fin_categories(id) on delete set null,
-  account_id   uuid references fin_accounts(id) on delete set null,
-  due_day      int,
-  auto_pay     boolean not null default false,
-  splits       jsonb not null default '[]',
-  created_at   timestamptz default now()
+  id              uuid primary key default gen_random_uuid(),
+  name            text not null,
+  base_amount     numeric not null default 0,
+  type            bill_type not null default 'fixed',
+  category_id     uuid references fin_categories(id) on delete set null,
+  subcategory_id  uuid references fin_categories(id) on delete set null,
+  account_id      uuid references fin_accounts(id) on delete set null,
+  due_day         int,
+  auto_pay        boolean not null default false,
+  splits          jsonb not null default '[]',
+  created_at      timestamptz default now()
 );
 
 create table fin_income (
@@ -182,6 +187,7 @@ create table fin_overrides (
   amount      numeric,
   splits      jsonb,
   status      bill_status,
+  hidden      boolean not null default false,
   unique(bill_id, month_key)
 );
 
@@ -199,12 +205,117 @@ alter publication supabase_realtime add table fin_income;
 alter publication supabase_realtime add table fin_budgets;
 alter publication supabase_realtime add table fin_overrides;
 
--- ── Row Level Security (RLS) — enable but allow all for now ─────────────────
--- In production: scope to household via Supabase Auth claims
+-- ── Row Level Security (RLS) — see Migration 002 below ─────────────────────
 alter table household_members enable row level security;
 create policy "allow all" on household_members using (true) with check (true);
--- Repeat for each table as needed
 ```
+
+---
+
+## Migration 002 — RLS en todas las tablas + columnas faltantes
+
+Ejecutar en **Supabase → SQL Editor** después de Migration 001 (schema inicial).
+
+```sql
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Migration 002: RLS completo + columnas faltantes
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- ── 1. Columnas faltantes ─────────────────────────────────────────────────────
+
+-- fin_bills: subcategory_id (referenciado desde la UI pero no estaba en DDL)
+alter table fin_bills
+  add column if not exists subcategory_id uuid
+    references fin_categories(id) on delete set null;
+
+-- reminders: campos usados por ReminderForm que no estaban en DDL
+alter table reminders
+  add column if not exists end_at     timestamptz,
+  add column if not exists is_all_day boolean not null default false,
+  add column if not exists notes      text;
+
+-- ── 2. Realtime — chore_assignments faltaba ──────────────────────────────────
+alter publication supabase_realtime add table chore_assignments;
+
+-- ── 3. Habilitar RLS en todas las tablas ─────────────────────────────────────
+alter table household_members  enable row level security;
+alter table photos             enable row level security;
+alter table chores             enable row level security;
+alter table chore_assignments  enable row level security;
+alter table chore_completions  enable row level security;
+alter table calendar_events    enable row level security;
+alter table reminders          enable row level security;
+alter table shopping_lists     enable row level security;
+alter table shopping_items     enable row level security;
+alter table notes              enable row level security;
+alter table fin_categories     enable row level security;
+alter table fin_accounts       enable row level security;
+alter table fin_bills          enable row level security;
+alter table fin_income         enable row level security;
+alter table fin_budgets        enable row level security;
+alter table fin_overrides      enable row level security;
+
+-- ── 4. Eliminar policy permisiva anterior en household_members ────────────────
+drop policy if exists "allow all" on household_members;
+
+-- ── 5. Políticas por tabla ────────────────────────────────────────────────────
+-- Patrón: SELECT separado de ALL-writes para poder restringir escrituras
+-- fácilmente en el futuro sin tocar las lecturas.
+--
+-- TODO (post auth-migration): reemplazar `using (true)` en políticas write
+-- por `using (auth.role() = 'authenticated')` una vez que los miembros
+-- del hogar usen Supabase Auth sessions.
+
+-- household_members
+create policy "household read members"  on household_members for select using (true);
+create policy "household write members" on household_members for all    using (true) with check (true);
+
+-- photos
+create policy "household read photos"   on photos for select using (true);
+create policy "household write photos"  on photos for all    using (true) with check (true);
+
+-- chores
+create policy "household read chores"       on chores            for select using (true);
+create policy "household write chores"      on chores            for all    using (true) with check (true);
+create policy "household read assignments"  on chore_assignments for select using (true);
+create policy "household write assignments" on chore_assignments for all    using (true) with check (true);
+create policy "household read completions"  on chore_completions for select using (true);
+create policy "household write completions" on chore_completions for all    using (true) with check (true);
+
+-- calendar
+create policy "household read calendar"  on calendar_events for select using (true);
+create policy "household write calendar" on calendar_events for all    using (true) with check (true);
+
+-- reminders
+create policy "household read reminders"  on reminders for select using (true);
+create policy "household write reminders" on reminders for all    using (true) with check (true);
+
+-- shopping
+create policy "household read lists"  on shopping_lists for select using (true);
+create policy "household write lists" on shopping_lists for all    using (true) with check (true);
+create policy "household read items"  on shopping_items for select using (true);
+create policy "household write items" on shopping_items for all    using (true) with check (true);
+
+-- notes
+create policy "household read notes"  on notes for select using (true);
+create policy "household write notes" on notes for all    using (true) with check (true);
+
+-- finance
+create policy "household read categories"  on fin_categories for select using (true);
+create policy "household write categories" on fin_categories for all    using (true) with check (true);
+create policy "household read accounts"    on fin_accounts   for select using (true);
+create policy "household write accounts"   on fin_accounts   for all    using (true) with check (true);
+create policy "household read bills"       on fin_bills      for select using (true);
+create policy "household write bills"      on fin_bills      for all    using (true) with check (true);
+create policy "household read income"      on fin_income     for select using (true);
+create policy "household write income"     on fin_income     for all    using (true) with check (true);
+create policy "household read budgets"     on fin_budgets    for select using (true);
+create policy "household write budgets"    on fin_budgets    for all    using (true) with check (true);
+create policy "household read overrides"   on fin_overrides  for select using (true);
+create policy "household write overrides"  on fin_overrides  for all    using (true) with check (true);
+```
+
+> **Por qué `using (true)` en writes:** la app usa la anon key directamente (no hay Supabase Auth sessions todavía). Separar SELECT de ALL-writes permite cambiar sólo la política de escritura a `auth.role() = 'authenticated'` cuando se implemente login con Supabase Auth — sin tocar nada más.
 
 ## Key Design Decisions
 

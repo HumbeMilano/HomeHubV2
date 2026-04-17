@@ -31,9 +31,9 @@ export const useChoresStore = create<ChoresState>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true });
     const [{ data: chores }, { data: assignments }, { data: completions }] = await Promise.all([
-      supabase.from('chores').select('*').order('title'),
-      supabase.from('chore_assignments').select('*'),
-      supabase.from('chore_completions').select('*').order('scheduled_date', { ascending: false }),
+      supabase.from('chores').select('id,title,description,category,recurrence_rule,created_by,created_at').order('title').limit(500),
+      supabase.from('chore_assignments').select('id,chore_id,member_id').limit(500),
+      supabase.from('chore_completions').select('id,chore_id,completed_by,scheduled_date,completed_at').order('scheduled_date', { ascending: false }).limit(500),
     ]);
     set({
       chores: (chores ?? []) as Chore[],
@@ -121,7 +121,7 @@ export const useChoresStore = create<ChoresState>((set, get) => ({
 }));
 
 // Listen for BroadcastChannel messages from other tabs
-bc.listen((msg) => {
+const _unsubChoresBc = bc.listen((msg) => {
   const store = useChoresStore.getState();
   if (msg.type === 'INSERT') {
     const c = msg.payload as unknown as Chore;
@@ -139,3 +139,4 @@ bc.listen((msg) => {
     store.fetchAll();
   }
 });
+if (import.meta.hot) import.meta.hot.dispose(() => { _unsubChoresBc(); bc.close(); });

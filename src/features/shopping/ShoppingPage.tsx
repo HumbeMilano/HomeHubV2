@@ -1,16 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
-import type { ShoppingList, ShoppingItem } from '../../types';
 import { useShoppingStore } from '../../store/shoppingStore';
+import { SkeletonCard } from '../../components/Skeleton';
 import { useAuthStore } from '../../store/authStore';
-import { subscribeToTable } from '../../lib/realtime';
 import ShoppingCard from './ShoppingCard';
 import styles from './ShoppingPage.module.css';
 
 const LIST_COLORS = ['#fb923c', '#60a5fa', '#34d399', '#f472b6', '#facc15', '#818cf8', '#38bdf8', '#ef4444'];
 
 export default function ShoppingPage() {
-  const { lists, items, fetchAll, addList } = useShoppingStore();
+  const { lists, items, loading, fetchAll, addList } = useShoppingStore();
   const { activeMember } = useAuthStore();
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState('');
@@ -18,39 +17,6 @@ export default function ShoppingPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Cross-device Realtime sync
-  useEffect(() => {
-    const unsubLists = subscribeToTable<ShoppingList>({
-      table: 'shopping_lists',
-      onData: ({ eventType, new: row, old }) => {
-        const store = useShoppingStore.getState();
-        if (eventType === 'INSERT' && row && !store.lists.find((l) => l.id === row.id)) {
-          store.setLists([...store.lists, row]);
-        } else if (eventType === 'UPDATE' && row) {
-          store.setLists(store.lists.map((l) => (l.id === row.id ? row : l)));
-        } else if (eventType === 'DELETE' && old) {
-          store.setLists(store.lists.filter((l) => l.id !== old.id));
-          store.setItems(store.items.filter((i) => i.list_id !== old.id));
-        }
-      },
-    });
-
-    const unsubItems = subscribeToTable<ShoppingItem>({
-      table: 'shopping_items',
-      onData: ({ eventType, new: row, old }) => {
-        const store = useShoppingStore.getState();
-        if (eventType === 'INSERT' && row && !store.items.find((i) => i.id === row.id)) {
-          store.setItems([...store.items, row]);
-        } else if (eventType === 'UPDATE' && row) {
-          store.setItems(store.items.map((i) => (i.id === row.id ? row : i)));
-        } else if (eventType === 'DELETE' && old) {
-          store.setItems(store.items.filter((i) => i.id !== old.id));
-        }
-      },
-    });
-
-    return () => { unsubLists(); unsubItems(); };
-  }, []);
 
   async function handleAddList(e: React.FormEvent) {
     e.preventDefault();
@@ -65,6 +31,16 @@ export default function ShoppingPage() {
     setNewName('');
     setNewColor(LIST_COLORS[0]);
     setShowForm(false);
+  }
+
+  if (loading && lists.length === 0) {
+    return (
+      <div className={styles.root}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--sp-4)' }}>
+          {[1, 2, 3].map((i) => <SkeletonCard key={i} lines={4} />)}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -116,7 +92,7 @@ export default function ShoppingPage() {
           <p>No lists yet. Create one to get started.</p>
         </div>
       ) : (
-        <div className={styles.grid}>
+        <div className={`${styles.grid} list-item-stagger`}>
           {lists.map((list) => (
             <ShoppingCard
               key={list.id}

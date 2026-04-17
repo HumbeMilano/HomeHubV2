@@ -12,6 +12,8 @@
   --bg-3:      #2C2C2E;          /* tertiarySystemBackground             */
   --bg-4:      #3A3A3C;          /* quaternary / elevated                */
   --bg-glass:  rgba(28,28,30,0.82); /* frosted-glass nav bars            */
+  --bg-hover:  rgba(120,120,128,0.10); /* hover fill on dark surfaces    */
+  --scrim-photo: rgba(0,0,0,0.32);    /* overlay on photo backgrounds   */
 
   /* ── Separators ───────────────────────────────────────────────────────── */
   --border:        rgba(84,84,88,0.65);  /* iOS opaque separator dark    */
@@ -49,6 +51,7 @@
   --shadow-lg: 0 16px 56px rgba(0,0,0,.60);
 
   /* ── Radius (iOS scale) ───────────────────────────────────────────────── */
+  --r-xs:     4px;
   --r-sm:     10px;
   --r-md:     13px;
   --r-lg:     16px;
@@ -72,6 +75,8 @@
                'SF Pro Text', 'Helvetica Neue', sans-serif;
   --font-mono: 'SF Mono', ui-monospace, 'Fira Code', monospace;
 
+  --text-3xs:  10px;  /* micro      */
+  --text-2xs:  12px;  /* caption1   */
   --text-xs:   14px;  /* caption2   */
   --text-sm:   16px;  /* footnote   */
   --text-base: 19px;  /* subhead    */
@@ -92,6 +97,7 @@
   --transition-slow:   280ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-spring: 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
   --transition-page:   280ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bar:    300ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ── Layout ──────────────────────────────────────────────────────────── */
   --sidebar-width: 64px;
@@ -111,6 +117,8 @@
   --bg-3:      #F2F2F7;              /* tertiary ≈ bg in grouped style   */
   --bg-4:      #E5E5EA;
   --bg-glass:  rgba(242,242,247,0.82);
+  --bg-hover:  rgba(0,0,0,0.06);
+  --scrim-photo: rgba(0,0,0,0.28);
 
   --border:        rgba(60,60,67,0.55);   /* iOS separator light — visible */
   --border-focus:  #007AFF;
@@ -142,6 +150,8 @@
     --bg-3:      #F2F2F7;
     --bg-4:      #E5E5EA;
     --bg-glass:  rgba(242,242,247,0.82);
+    --bg-hover:  rgba(0,0,0,0.06);
+    --scrim-photo: rgba(0,0,0,0.28);
     --border:        rgba(60,60,67,0.55);
     --border-focus:  #007AFF;
     --text:   #000000;

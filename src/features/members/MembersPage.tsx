@@ -3,12 +3,14 @@ import { Users, Plus, Pencil, X } from 'lucide-react';
 import type { Member } from '../../types';
 import { useMembersStore } from '../../store/membersStore';
 import { subscribeToTable } from '../../lib/realtime';
+import ConfirmModal from '../../components/ConfirmModal';
 import MemberForm from './MemberForm';
 import styles from './MembersPage.module.css';
 
 export default function MembersPage() {
   const { members, fetchAll, deleteMember } = useMembersStore();
-  const [modal, setModal] = useState<{ member?: Member } | null>(null);
+  const [modal,         setModal]         = useState<{ member?: Member } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Member | null>(null);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -28,9 +30,8 @@ export default function MembersPage() {
     });
   }, []);
 
-  async function handleDelete(member: Member) {
-    if (!confirm(`Delete "${member.name}"? This cannot be undone.`)) return;
-    await deleteMember(member.id);
+  function handleDelete(member: Member) {
+    setConfirmDelete(member);
   }
 
   return (
@@ -67,6 +68,19 @@ export default function MembersPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        message={`Delete "${confirmDelete?.name}"?\n\nThis will also remove all their chore assignments, income records, and any bill splits tied to this member. This cannot be undone.`}
+        danger
+        onConfirm={async () => {
+          if (confirmDelete) {
+            await deleteMember(confirmDelete.id);
+            setConfirmDelete(null);
+          }
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

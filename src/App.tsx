@@ -1,10 +1,12 @@
+import { useEffect } from 'react';
 import {
   Home, CalendarDays, ShoppingCart, Wallet,
-  FileText, CheckSquare, Settings, Sun, Moon,
+  FileText, CheckSquare, Bell, Settings, Sun, Moon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from './store/authStore';
 import { useAppStore } from './store/appStore';
+import { useIdleTimer } from './lib/useIdleTimer';
 import type { AppPage, Member } from './types';
 import Dashboard from './features/dashboard/Dashboard';
 import CalendarPage from './features/calendar/CalendarPage';
@@ -14,27 +16,39 @@ import NotesPage from './features/notes/NotesPage';
 import ChoresPage from './features/chores/ChoresPage';
 import PageTransition from './components/PageTransition';
 import SettingsPanel from './components/SettingsPanel';
+import LockScreen from './features/lockscreen/LockScreen';
+import RemindersPage from './features/reminders/RemindersPage';
+import Toaster from './components/Toast';
 
 const NAV_PAGES: { page: AppPage; label: string; icon: LucideIcon }[] = [
-  { page: 'dashboard', label: 'Home',     icon: Home },
-  { page: 'calendar',  label: 'Calendar', icon: CalendarDays },
-  { page: 'finance',   label: 'Finance',  icon: Wallet },
-  { page: 'shopping',  label: 'Shopping', icon: ShoppingCart },
-  { page: 'notes',     label: 'Notes',    icon: FileText },
-  { page: 'chores',    label: 'Chores',   icon: CheckSquare },
+  { page: 'dashboard',  label: 'Home',      icon: Home },
+  { page: 'calendar',   label: 'Calendar',  icon: CalendarDays },
+  { page: 'finance',    label: 'Finance',   icon: Wallet },
+  { page: 'shopping',   label: 'Shopping',  icon: ShoppingCart },
+  { page: 'notes',      label: 'Notes',     icon: FileText },
+  { page: 'chores',     label: 'Chores',    icon: CheckSquare },
+  { page: 'reminders',  label: 'Reminders', icon: Bell },
 ];
 
 export default function App() {
-  const { activeMember } = useAuthStore();
+  const { activeMember, verifyMemberExists, lock } = useAuthStore();
   const { currentPage, navigate, settingsOpen, setSettingsOpen, theme, setTheme } = useAppStore();
+
+  useEffect(() => { verifyMemberExists(); }, [verifyMemberExists]);
+
+  // Auto-lock on inactivity (only when a member is active)
+  useIdleTimer();
+
+  if (!activeMember) return <LockScreen />;
 
   return (
     <div className="app-shell">
-      {/* Slim icon sidebar — desktop */}
+      {/* Slim icon sidebar — desktop (expands on hover) */}
       <SlimSidebar
         currentPage={currentPage}
         onNavigate={navigate}
         onSettings={() => setSettingsOpen(true)}
+        onLock={lock}
         activeMember={activeMember}
         theme={theme}
         onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -54,56 +68,54 @@ export default function App() {
 
       {/* Settings / members panel */}
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+
+      {/* Toast notifications */}
+      <Toaster />
     </div>
   );
 }
 
-/* ── Slim sidebar (desktop, icon-only) ────────────────────────────────────── */
-function SlimSidebar({ currentPage, onNavigate, onSettings, activeMember, theme, onThemeToggle }: {
+/* ── Slim sidebar (desktop) — expands on hover ────────────────────────────── */
+function SlimSidebar({ currentPage, onNavigate, onSettings, onLock, activeMember, theme, onThemeToggle }: {
   currentPage: AppPage;
   onNavigate: (p: AppPage) => void;
   onSettings: () => void;
+  onLock: () => void;
   activeMember: Member | null;
   theme: string;
   onThemeToggle: () => void;
 }) {
   return (
     <nav className="sidebar">
-      {/* Member avatar — first item */}
+      {/* Member avatar — click to LOCK the screen */}
       <button
         className="nav-item"
-        onClick={onSettings}
-        title={activeMember ? activeMember.name : 'Settings'}
-        style={activeMember ? {
-          background: activeMember.color,
-          borderRadius: '50%',
-          width: 32,
-          height: 32,
-          fontSize: 12,
-          fontWeight: 700,
-          color: '#fff',
-          overflow: 'hidden',
-          padding: 0,
-        } : undefined}
+        onClick={onLock}
+        title={activeMember ? `Lock (${activeMember.name})` : 'Lock'}
+        aria-label="Lock screen"
       >
-        {activeMember
-          ? (activeMember.avatar_url
-              ? <img src={activeMember.avatar_url} alt={activeMember.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : activeMember.name.slice(0, 2).toUpperCase())
-          : <Settings size={18} />}
+        <div className="sidebar-avatar" style={{ background: activeMember?.color ?? 'var(--bg-4)' }}>
+          {activeMember?.avatar_url
+            ? <img src={activeMember.avatar_url} alt={activeMember.name} />
+            : <span>{activeMember ? activeMember.name.slice(0, 2).toUpperCase() : '?'}</span>
+          }
+        </div>
+        <span className="sidebar-label">{activeMember?.name ?? 'Lock'}</span>
       </button>
 
-      <div className="sidebar-spacer" style={{ maxHeight: 8 }} />
+      <div style={{ height: 6, flexShrink: 0 }} />
 
       {/* Nav items */}
-      {NAV_PAGES.map(({ page, icon: Icon }) => (
+      {NAV_PAGES.map(({ page, label, icon: Icon }) => (
         <button
           key={page}
           className={`nav-item${currentPage === page ? ' active' : ''}`}
           onClick={() => onNavigate(page)}
-          title={NAV_PAGES.find(n => n.page === page)?.label}
+          aria-label={label}
+          aria-current={currentPage === page ? 'page' : undefined}
         >
-          <Icon size={20} />
+          <Icon size={20} style={{ flexShrink: 0 }} />
+          <span className="sidebar-label">{label}</span>
         </button>
       ))}
 
@@ -113,14 +125,16 @@ function SlimSidebar({ currentPage, onNavigate, onSettings, activeMember, theme,
       <button
         className="nav-item"
         onClick={onThemeToggle}
-        title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       >
-        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        {theme === 'dark' ? <Sun size={18} style={{ flexShrink: 0 }} /> : <Moon size={18} style={{ flexShrink: 0 }} />}
+        <span className="sidebar-label">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
       </button>
 
       {/* Settings */}
-      <button className="nav-item" onClick={onSettings} title="Settings">
-        <Settings size={18} />
+      <button className="nav-item" onClick={onSettings} aria-label="Settings">
+        <Settings size={18} style={{ flexShrink: 0 }} />
+        <span className="sidebar-label">Settings</span>
       </button>
     </nav>
   );
@@ -138,7 +152,8 @@ function BottomDock({ currentPage, onNavigate }: {
           key={page}
           className={`nav-item${currentPage === page ? ' active' : ''}`}
           onClick={() => onNavigate(page)}
-          title={label}
+          aria-label={label}
+          aria-current={currentPage === page ? 'page' : undefined}
         >
           <Icon size={22} />
           <span className="nav-item__label">{label}</span>
@@ -150,11 +165,12 @@ function BottomDock({ currentPage, onNavigate }: {
 
 /* ── Page router ─────────────────────────────────────────────────────────── */
 function PageRouter({ page }: { page: AppPage }) {
-  if (page === 'dashboard') return <Dashboard />;
-  if (page === 'calendar')  return <CalendarPage />;
-  if (page === 'shopping')  return <ShoppingPage />;
-  if (page === 'finance')   return <FinancePage />;
-  if (page === 'notes')     return <NotesPage />;
-  if (page === 'chores')    return <ChoresPage />;
+  if (page === 'dashboard')  return <Dashboard />;
+  if (page === 'calendar')   return <CalendarPage />;
+  if (page === 'shopping')   return <ShoppingPage />;
+  if (page === 'finance')    return <FinancePage />;
+  if (page === 'notes')      return <NotesPage />;
+  if (page === 'chores')     return <ChoresPage />;
+  if (page === 'reminders')  return <RemindersPage />;
   return null;
 }

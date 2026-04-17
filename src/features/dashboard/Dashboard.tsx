@@ -133,13 +133,17 @@ export default function Dashboard() {
   useEffect(() => {
     const el = document.querySelector('.page-area') as HTMLElement | null;
     if (!el) return;
+    let rafId = 0;
     const obs = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w) setContainerWidth(w - 40);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const w = entries[0]?.contentRect.width;
+        if (w) setContainerWidth(w - 40);
+      });
     });
     obs.observe(el);
     setContainerWidth(el.clientWidth - 40);
-    return () => obs.disconnect();
+    return () => { cancelAnimationFrame(rafId); obs.disconnect(); };
   }, []);
 
   // Persist whenever widgets or layout change

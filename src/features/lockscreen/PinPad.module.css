@@ -8,19 +8,19 @@
   align-items: center;
   justify-content: center;
   z-index: 10;
-  animation: fade-in 220ms ease;
+  animation: overlay-in 250ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: scale(0.96); }
-  to   { opacity: 1; transform: scale(1); }
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .card {
-  background: rgba(44,44,46,0.88);
+  background: var(--bg-glass);
   backdrop-filter: blur(32px) saturate(160%);
   -webkit-backdrop-filter: blur(32px) saturate(160%);
-  border: 0.5px solid rgba(84,84,88,0.5);
+  border: 0.5px solid var(--border);
   border-radius: var(--r-xl);
   padding: var(--sp-8) var(--sp-10);
   display: flex;
@@ -29,11 +29,12 @@
   gap: var(--sp-4);
   min-width: 300px;
   box-shadow: var(--shadow-lg);
+  animation: card-up 300ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-[data-theme="light"] .card {
-  background: rgba(242,242,247,0.88);
-  border-color: rgba(60,60,67,0.2);
+@keyframes card-up {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .avatar {
@@ -64,6 +65,8 @@
 .hint {
   font-size: var(--text-sm);
   color: var(--text-2);
+  min-height: 18px;
+  text-align: center;
 }
 
 /* PIN dots */
@@ -73,25 +76,57 @@
   margin: var(--sp-2) 0;
 }
 
+/* Shake on error */
+.dotsError {
+  animation: shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes shake {
+  0%   { transform: translateX(0); }
+  15%  { transform: translateX(-6px); }
+  30%  { transform: translateX(5px); }
+  45%  { transform: translateX(-4px); }
+  60%  { transform: translateX(3px); }
+  75%  { transform: translateX(-2px); }
+  90%  { transform: translateX(1px); }
+  100% { transform: translateX(0); }
+}
+
 .dot {
   width: 13px;
   height: 13px;
   border-radius: var(--r-full);
   border: 2px solid var(--text-3);
   background: transparent;
-  transition: background var(--transition), border-color var(--transition),
-              transform var(--transition-spring);
+  transition: background 160ms var(--transition),
+              border-color 160ms var(--transition),
+              transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .dotFilled {
   background: var(--accent);
   border-color: var(--accent);
-  transform: scale(1.12);
+  transform: scale(1.18);
 }
 
 .dotError {
   background: var(--danger);
   border-color: var(--danger);
+  transform: scale(1.1);
+}
+
+/* Error message */
+.errorMsg {
+  font-size: var(--text-xs);
+  color: var(--danger);
+  font-weight: 500;
+  text-align: center;
+  animation: fade-in 150ms ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* iOS numpad grid */
@@ -110,9 +145,11 @@
   background: rgba(120,120,128,0.22);
   border: none;
   color: var(--text);
-  transition: background var(--transition), transform 80ms;
+  transition: background var(--transition);
   cursor: pointer;
   letter-spacing: -0.5px;
+  position: relative;
+  overflow: hidden;
 }
 
 [data-theme="light"] .key {
@@ -127,6 +164,23 @@
 .key:active {
   transform: scale(0.93);
   background: rgba(120,120,128,0.44);
+  transition: transform 60ms, background 60ms;
+}
+
+/* Ripple effect */
+.key::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 300ms;
+}
+
+.key:active::after {
+  opacity: 1;
+  transition: opacity 0ms;
 }
 
 .keyEmpty {
@@ -134,6 +188,11 @@
   box-shadow: none;
   cursor: default;
   pointer-events: none;
+}
+
+[data-theme="light"] .keyEmpty {
+  background: transparent;
+  box-shadow: none;
 }
 
 .cancel {
@@ -144,6 +203,11 @@
   border: none;
   cursor: pointer;
   font-weight: 500;
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-md);
+  transition: background var(--transition);
 }
 
-.cancel:hover { opacity: 0.75; }
+.cancel:hover {
+  background: rgba(10,132,255,0.1);
+}

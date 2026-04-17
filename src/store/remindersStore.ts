@@ -23,7 +23,7 @@ export const useRemindersStore = create<RemindersState>((set, get) => ({
 
   fetchAll: async () => {
     set({ loading: true });
-    const { data } = await supabase.from('reminders').select('*').order('due_at');
+    const { data } = await supabase.from('reminders').select('id,title,body,due_at,end_at,is_all_day,is_recurring,recurrence_rule,member_id,created_at').order('due_at').limit(500);
     set({ reminders: (data ?? []) as Reminder[], loading: false });
   },
 
@@ -70,19 +70,27 @@ export const useRemindersStore = create<RemindersState>((set, get) => ({
   setReminders: (reminders) => set({ reminders }),
 }));
 
+function isObj(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
 // Sync other tabs via BroadcastChannel
-bc.listen((msg) => {
+const _unsubRemindersBc = bc.listen((msg) => {
   const store = useRemindersStore.getState();
   if (msg.type === 'INSERT') {
+    if (!isObj(msg.payload) || typeof msg.payload.id !== 'string') return;
     const r = msg.payload as unknown as Reminder;
     if (!store.reminders.find((x) => x.id === r.id)) {
       store.setReminders([...store.reminders, r].sort((a, b) => a.due_at.localeCompare(b.due_at)));
     }
   } else if (msg.type === 'UPDATE') {
-    const { id, patch } = msg.payload as unknown as { id: string; patch: Partial<Reminder> };
+    if (!isObj(msg.payload) || typeof msg.payload.id !== 'string') return;
+    const { id, patch } = msg.payload as { id: string; patch: Partial<Reminder> };
     store.setReminders(store.reminders.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   } else if (msg.type === 'DELETE') {
-    const { id } = msg.payload as unknown as { id: string };
+    if (!isObj(msg.payload) || typeof msg.payload.id !== 'string') return;
+    const { id } = msg.payload as { id: string };
     store.setReminders(store.reminders.filter((r) => r.id !== id));
   }
 });
+if (import.meta.hot) import.meta.hot.dispose(() => { _unsubRemindersBc(); bc.close(); });

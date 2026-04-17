@@ -4,11 +4,14 @@ import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, isToday, isSameDay, parseISO,
 } from 'date-fns';
-import { X, Pencil, Trash2, Plus, ChevronLeft, Bell, Calendar, DollarSign } from 'lucide-react';
+import { X, Plus, ChevronLeft } from 'lucide-react';
 import { useCalendarStore } from '../../../store/calendarStore';
+import ConfirmModal from '../../../components/ConfirmModal';
 import { useFinanceStore } from '../../../store/financeStore';
-import { useAppStore } from '../../../store/appStore';
+import { useAuthStore } from '../../../store/authStore';
 import type { CalendarItem, FinBill } from '../../../types';
+import { EventDetailSheet, itemTypeBadge } from '../../calendar/EventDetail';
+import { ItemForm } from '../../calendar/CalendarPage';
 import styles from './CalendarWidget.module.css';
 
 const BILL_COLOR = '#6EC895';
@@ -66,20 +69,17 @@ function itemsForDay(items: CalendarItem[], day: Date) {
   });
 }
 
-function typeBadge(item: CalendarItem) {
-  if (item.reminder_category === 'bill') return { icon: <DollarSign size={10} />, label: 'Bill' };
-  if (item.type === 'event')             return { icon: <Calendar   size={10} />, label: 'Event' };
-  return                                        { icon: <Bell       size={10} />, label: 'Reminder' };
-}
-
 // ── Widget ────────────────────────────────────────────────────────────────────
 export default function CalendarWidget() {
-  const [month,      setMonth]      = useState(new Date());
-  const [popupDay,   setPopupDay]   = useState<Date | null>(null);
-  const [detailItem, setDetailItem] = useState<CalendarItem | null>(null);
+  const [month,       setMonth]       = useState(new Date());
+  const [popupDay,    setPopupDay]    = useState<Date | null>(null);
+  const [detailItem,  setDetailItem]  = useState<CalendarItem | null>(null);
+  const [formDate,    setFormDate]    = useState<Date | null>(null);
+  const [editItem,    setEditItem]    = useState<CalendarItem | null>(null);
+  const [confirmItem, setConfirmItem] = useState<CalendarItem | null>(null);
   const { items, fetchAll, deleteItem } = useCalendarStore();
   const { bills, getEffectiveAmount }   = useFinanceStore();
-  const { goCalendar } = useAppStore();
+  const { activeMember } = useAuthStore();
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -95,7 +95,8 @@ export default function CalendarWidget() {
   function prevMonth() { setMonth((m) => { const d = new Date(m); d.setMonth(d.getMonth() - 1); return d; }); }
   function nextMonth() { setMonth((m) => { const d = new Date(m); d.setMonth(d.getMonth() + 1); return d; }); }
 
-  function closePopup() { setPopupDay(null); setDetailItem(null); }
+  function closePopup() { setPopupDay(null); setDetailItem(null); setEditItem(null); }
+  function closeForm()  { setFormDate(null); setEditItem(null); }
 
   return (
     <div className={styles.root}>
@@ -114,7 +115,7 @@ export default function CalendarWidget() {
           const chips    = dayItems.slice(0, 2);
           const more     = dayItems.length - chips.length;
           return (
-            <span
+            <button
               key={day.toISOString()}
               className={[
                 styles.day,
@@ -122,6 +123,8 @@ export default function CalendarWidget() {
                 isToday(day) ? styles.dayToday : '',
                 popupDay && isSameDay(day, popupDay) ? styles.daySelected : '',
               ].join(' ')}
+              aria-label={format(day, 'MMMM d, yyyy') + (dayItems.length ? `, ${dayItems.length} event${dayItems.length > 1 ? 's' : ''}` : '')}
+              aria-pressed={popupDay ? isSameDay(day, popupDay) : false}
               onClick={() => { setDetailItem(null); setPopupDay(day); }}
             >
               <span className={styles.dayNum}>{format(day, 'd')}</span>
@@ -139,42 +142,70 @@ export default function CalendarWidget() {
                 </span>
               ))}
               {more > 0 && <span className={styles.chipMore}>+{more}</span>}
-            </span>
+            </button>
           );
         })}
       </div>
 
-      {/* Popup portal */}
-      {popupDay && createPortal(
-        <div className={styles.modalBackdrop} onClick={closePopup}>
-          <div className={styles.modalSheet} onClick={(e) => e.stopPropagation()}>
-            {detailItem ? (
-              /* ── Detail view ── */
-              <ItemDetail
-                item={detailItem}
-                onBack={() => setDetailItem(null)}
-                onEdit={() => { closePopup(); goCalendar({ day: popupDay, openEdit: detailItem }); }}
-                onDelete={() => {
-                  if (confirm(`Delete "${detailItem.title}"?`)) {
-                    deleteItem(detailItem.id);
-                    closePopup();
-                  }
-                }}
-              />
-            ) : (
-              /* ── Event list ── */
-              <DayEventList
-                date={popupDay}
-                items={itemsForDay(allItems, popupDay)}
-                onSelect={setDetailItem}
-                onAdd={() => { closePopup(); goCalendar({ day: popupDay, openAdd: true }); }}
-                onClose={closePopup}
-              />
-            )}
+      {/* Day list — bottom sheet */}
+      {popupDay && !detailItem && createPortal(
+        <div className="modal-backdrop" onClick={closePopup}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <DayEventList
+              date={popupDay}
+              items={itemsForDay(allItems, popupDay)}
+              onSelect={setDetailItem}
+              onAdd={() => { closePopup(); setFormDate(popupDay); }}
+              onClose={closePopup}
+            />
           </div>
         </div>,
         document.body,
       )}
+
+      {/* Detail sheet */}
+      {detailItem && createPortal(
+        <div className="modal-backdrop" onClick={closePopup}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <EventDetailSheet
+              item={detailItem}
+              onEdit={() => { closePopup(); setEditItem(detailItem); setFormDate(parseISO(detailItem.start_at)); }}
+              onDelete={() => setConfirmItem(detailItem)}
+              onClose={closePopup}
+            />
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* Add / Edit form */}
+      {formDate && createPortal(
+        <div className="modal-backdrop" onClick={closeForm}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <ItemForm
+              existing={editItem ?? undefined}
+              defaultDate={formDate}
+              memberId={activeMember?.id ?? null}
+              onClose={closeForm}
+            />
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      <ConfirmModal
+        open={confirmItem !== null}
+        message={`Delete "${confirmItem?.title}"?`}
+        danger
+        onConfirm={() => {
+          if (confirmItem) {
+            deleteItem(confirmItem.id);
+            setConfirmItem(null);
+            closePopup();
+          }
+        }}
+        onCancel={() => setConfirmItem(null)}
+      />
     </div>
   );
 }
@@ -193,16 +224,17 @@ function DayEventList({ date, items, onSelect, onAdd, onClose }: {
   });
 
   return (
-    <>
-      <div className={styles.popupHeader}>
-        <span className={styles.popupDate}>{format(date, 'EEEE, MMM d')}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', padding: 'var(--sp-2) 0' }}>
+      <div className="modal-handle" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 var(--sp-4)' }}>
+        <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>{format(date, 'EEEE, MMM d')}</span>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button
-            className={styles.popupClose}
-            title="Add event"
-            onClick={onAdd}
-          ><Plus size={13} /></button>
-          <button className={styles.popupClose} onClick={onClose}><X size={13} /></button>
+          <button className="btn btn--ghost btn--icon" style={{ width: 32, height: 32 }} title="Add event" onClick={onAdd}>
+            <Plus size={14} />
+          </button>
+          <button className="btn btn--ghost btn--icon" style={{ width: 32, height: 32 }} onClick={onClose}>
+            <X size={14} />
+          </button>
         </div>
       </div>
 
@@ -213,7 +245,7 @@ function DayEventList({ date, items, onSelect, onAdd, onClose }: {
       ) : (
         <div className={styles.popupItems}>
           {sorted.map((item) => {
-            const badge = typeBadge(item);
+            const badge = itemTypeBadge(item);
             return (
               <div
                 key={item.id}
@@ -241,77 +273,6 @@ function DayEventList({ date, items, onSelect, onAdd, onClose }: {
           })}
         </div>
       )}
-    </>
-  );
-}
-
-// ── Item detail ───────────────────────────────────────────────────────────
-function ItemDetail({ item, onBack, onEdit, onDelete }: {
-  item: CalendarItem;
-  onBack: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  const isBill = item.id.startsWith('bill-');
-  const badge  = typeBadge(item);
-
-  const timeStr = item.all_day
-    ? 'All day'
-    : (() => {
-        const s = format(parseISO(item.start_at), 'h:mm a');
-        return item.end_at ? `${s} – ${format(parseISO(item.end_at), 'h:mm a')}` : s;
-      })();
-
-  return (
-    <>
-      <div className={styles.popupHeader}>
-        <button className={styles.popupClose} onClick={onBack} title="Back">
-          <ChevronLeft size={13} />
-        </button>
-        <span className={styles.popupDate}>{format(parseISO(item.start_at), 'MMM d')}</span>
-        {!isBill && (
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button className={styles.popupClose} onClick={onEdit} title="Edit"><Pencil size={12} /></button>
-            <button className={styles.popupClose} style={{ color: 'var(--danger)' }} onClick={onDelete} title="Delete"><Trash2 size={12} /></button>
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
-        {/* Color + title */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-          <span style={{ width: 4, minHeight: 36, borderRadius: 2, background: item.color, flexShrink: 0, marginTop: 3 }} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>{item.title}</div>
-            <span style={{ fontSize: 11, color: item.color, display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
-              {badge.icon} {badge.label}
-            </span>
-          </div>
-        </div>
-
-        {/* Time */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-2)' }}>
-          <Calendar size={13} />
-          {format(parseISO(item.start_at), 'EEE, MMM d')} · {timeStr}
-        </div>
-
-        {/* Repeat */}
-        {item.repeat !== 'none' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-2)' }}>
-            <Bell size={13} /> Repeats {item.repeat}
-          </div>
-        )}
-
-        {/* Notes */}
-        {item.notes && (
-          <div style={{
-            background: 'var(--bg-3)', borderRadius: 10, padding: '8px 10px',
-            fontSize: 13, color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: 1.5,
-          }}>
-            {item.notes}
-          </div>
-        )}
-      </div>
-    </>
+    </div>
   );
 }

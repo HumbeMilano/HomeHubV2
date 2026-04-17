@@ -1,10 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { format, addDays, startOfDay, isAfter, isBefore, isToday, parseISO } from 'date-fns';
 import { Calendar, Bell, DollarSign, ChevronRight } from 'lucide-react';
 import { useCalendarStore } from '../../../store/calendarStore';
 import { useFinanceStore } from '../../../store/financeStore';
-import { useAppStore } from '../../../store/appStore';
+import { useAuthStore } from '../../../store/authStore';
 import type { CalendarItem, FinBill } from '../../../types';
+import { EventDetailSheet } from '../../calendar/EventDetail';
+import { ItemForm } from '../../calendar/CalendarPage';
+import ConfirmModal from '../../../components/ConfirmModal';
 import styles from './RemindersWidget.module.css';
 
 const BILL_COLOR = '#6EC895';
@@ -52,9 +56,12 @@ function typeLabel(item: CalendarItem) {
 }
 
 export default function RemindersWidget() {
-  const { items, fetchAll } = useCalendarStore();
+  const { items, fetchAll, deleteItem } = useCalendarStore();
   const { bills, getEffectiveAmount } = useFinanceStore();
-  const { goCalendar } = useAppStore();
+  const { activeMember } = useAuthStore();
+  const [detail,        setDetail]        = useState<CalendarItem | null>(null);
+  const [editItem,      setEditItem]      = useState<CalendarItem | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<CalendarItem | null>(null);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -75,36 +82,80 @@ export default function RemindersWidget() {
     .slice(0, 7);
 
   return (
-    <div className={styles.root}>
-      <h3 className={styles.title}><Calendar size={14} /> Upcoming</h3>
-      {upcoming.length === 0 ? (
-        <p className={styles.empty}>Nothing in the next 7 days</p>
-      ) : (
-        <ul className={styles.list}>
-          {upcoming.map((item) => (
-            <li
-              key={item.id}
-              className={styles.item}
-              style={{ cursor: 'pointer' }}
-              onClick={() => goCalendar({ day: parseISO(item.start_at), detail: item })}
-            >
-              <span className={styles.dot} style={{ background: item.color }} />
-              <span className={styles.itemTitle}>{item.title}</span>
-              <span className={styles.itemMeta}>
-                <span className={styles.typeBadge} style={{ color: item.color }}>
-                  {typeIcon(item)} {typeLabel(item)}
+    <>
+      <div className={styles.root}>
+        <h3 className={styles.title}><Calendar size={14} /> Upcoming</h3>
+        {upcoming.length === 0 ? (
+          <p className={styles.empty}>Nothing in the next 7 days</p>
+        ) : (
+          <ul className={styles.list}>
+            {upcoming.map((item) => (
+              <li
+                key={item.id}
+                className={styles.item}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setDetail(item)}
+              >
+                <span className={styles.dot} style={{ background: item.color }} />
+                <span className={styles.itemTitle}>{item.title}</span>
+                <span className={styles.itemMeta}>
+                  <span className={styles.typeBadge} style={{ color: item.color }}>
+                    {typeIcon(item)} {typeLabel(item)}
+                  </span>
+                  <span className={styles.itemDate}>
+                    {item.all_day
+                      ? format(parseISO(item.start_at), 'MMM d')
+                      : format(parseISO(item.start_at), 'MMM d, h:mm a')}
+                  </span>
                 </span>
-                <span className={styles.itemDate}>
-                  {item.all_day
-                    ? format(parseISO(item.start_at), 'MMM d')
-                    : format(parseISO(item.start_at), 'MMM d, h:mm a')}
-                </span>
-              </span>
-              <ChevronRight size={12} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
-            </li>
-          ))}
-        </ul>
+                <ChevronRight size={12} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {detail && createPortal(
+        <div className="modal-backdrop" onClick={() => setDetail(null)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <EventDetailSheet
+              item={detail}
+              onEdit={() => { setEditItem(detail); setDetail(null); }}
+              onDelete={() => setConfirmDelete(detail)}
+              onClose={() => setDetail(null)}
+            />
+          </div>
+        </div>,
+        document.body,
       )}
-    </div>
+
+      {editItem && createPortal(
+        <div className="modal-backdrop" onClick={() => setEditItem(null)}>
+          <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <ItemForm
+              existing={editItem}
+              defaultDate={parseISO(editItem.start_at)}
+              memberId={activeMember?.id ?? null}
+              onClose={() => setEditItem(null)}
+            />
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        message={`Delete "${confirmDelete?.title}"?`}
+        danger
+        onConfirm={() => {
+          if (confirmDelete) {
+            deleteItem(confirmDelete.id);
+            setConfirmDelete(null);
+            setDetail(null);
+          }
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
+    </>
   );
 }

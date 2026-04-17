@@ -42,7 +42,7 @@ img, svg { display: block; max-width: 100%; }
   background: var(--bg);
 }
 
-/* ── Slim icon-only sidebar (desktop) ────────────────────────────────────── */
+/* ── Slim icon sidebar (desktop) — hover-expands to show labels ───────────── */
 .sidebar {
   position: fixed;
   top: 0;
@@ -55,11 +55,79 @@ img, svg { display: block; max-width: 100%; }
   border-right: 0.5px solid var(--border);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: var(--sp-4) 0;
+  align-items: center;       /* icons centered when collapsed */
+  padding: var(--sp-4) var(--sp-2);
   gap: var(--sp-1);
   z-index: var(--z-overlay);
   flex-shrink: 0;
+  overflow: hidden;
+  transition: width var(--transition-slow), align-items var(--transition-slow), box-shadow var(--transition-slow);
+}
+
+.sidebar:hover {
+  width: 210px;
+  align-items: flex-start;  /* left-align when expanded */
+  box-shadow: var(--shadow-lg);
+}
+
+/* Nav items — centered icon when collapsed, row when expanded */
+.sidebar .nav-item {
+  width: 40px;
+  height: 40px;
+  flex-direction: row;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border-radius: var(--r-md);
+  transition: width var(--transition-slow), justify-content var(--transition-slow),
+              padding var(--transition-slow), gap var(--transition-slow),
+              background var(--transition), color var(--transition);
+}
+
+.sidebar:hover .nav-item {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 0 var(--sp-3);
+  gap: var(--sp-3);
+}
+
+/* Sidebar label — hidden by default, fades in on hover */
+.sidebar-label {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: 0;
+  max-width: 0;
+  transition: opacity 100ms, max-width 300ms;
+  pointer-events: none;
+}
+
+.sidebar:hover .sidebar-label {
+  opacity: 1;
+  max-width: 140px;
+  transition: opacity 180ms 80ms, max-width 300ms;
+}
+
+/* Avatar circle inside sidebar nav item */
+.sidebar-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sidebar-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .sidebar-logo {
@@ -420,6 +488,24 @@ img, svg { display: block; max-width: 100%; }
   to   { transform: translateY(0); }
 }
 
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Staggered list items — apply .list-item-stagger to list containers */
+.list-item-stagger > * {
+  animation: fade-in-up 220ms var(--transition-page) both;
+}
+.list-item-stagger > *:nth-child(1)  { animation-delay:   0ms; }
+.list-item-stagger > *:nth-child(2)  { animation-delay:  30ms; }
+.list-item-stagger > *:nth-child(3)  { animation-delay:  60ms; }
+.list-item-stagger > *:nth-child(4)  { animation-delay:  90ms; }
+.list-item-stagger > *:nth-child(5)  { animation-delay: 120ms; }
+.list-item-stagger > *:nth-child(6)  { animation-delay: 150ms; }
+.list-item-stagger > *:nth-child(7)  { animation-delay: 180ms; }
+.list-item-stagger > *:nth-child(n+8) { animation-delay: 200ms; }
+
 .modal-handle {
   width: 36px;
   height: 5px;
@@ -463,6 +549,17 @@ img, svg { display: block; max-width: 100%; }
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .sidebar { display: none; }
+
+  .main-content { margin-left: 0; }
+
+  .page-area { padding-bottom: calc(var(--dock-height) + 24px); }
+
+  .bottom-dock { display: flex; }
+}
+
+/* iPad portrait / small landscape (769–1023 px): sidebar hidden, show bottom dock */
+@media (min-width: 769px) and (max-width: 1023px) {
   .sidebar { display: none; }
 
   .main-content { margin-left: 0; }

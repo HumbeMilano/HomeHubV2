@@ -3,8 +3,9 @@
  * and RemindersWidget so the detail view looks identical everywhere.
  */
 import { format, parseISO } from 'date-fns';
-import { Calendar, Bell, DollarSign, FileText, Pencil, Trash2, ChevronRight } from 'lucide-react';
+import { Calendar, Bell, DollarSign, FileText, Pencil, Trash2, ChevronRight, ArrowUpRight, X } from 'lucide-react';
 import type { CalendarItem } from '../../types';
+import { useAppStore } from '../../store/appStore';
 
 const CATEGORY_LABELS: Record<string, string> = {
   personal:    'Personal',
@@ -34,6 +35,7 @@ export function EventDetailBody({ item, onEdit, onDelete }: {
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { navigate } = useAppStore();
   const isBill = item.id.startsWith('bill-');
   const badge  = itemTypeBadge(item);
   const categoryLabel = item.reminder_category ? CATEGORY_LABELS[item.reminder_category] : null;
@@ -100,7 +102,15 @@ export function EventDetailBody({ item, onEdit, onDelete }: {
       </div>
 
       {/* Action buttons */}
-      {!isBill && (
+      {isBill ? (
+        <button
+          className="btn btn--ghost"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          onClick={() => navigate('finance')}
+        >
+          <ArrowUpRight size={14} /> Manage in Finance
+        </button>
+      ) : (
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             className="btn btn--danger"
@@ -118,6 +128,27 @@ export function EventDetailBody({ item, onEdit, onDelete }: {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Shared detail sheet — bottom sheet wrapping EventDetailBody ───────────
+// Use this everywhere in the app. Render inside modal-backdrop + modal-sheet.
+export function EventDetailSheet({ item, onEdit, onDelete, onClose }: {
+  item: CalendarItem;
+  onEdit: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', padding: 'var(--sp-2) 0' }}>
+      <div className="modal-handle" />
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn btn--ghost btn--icon" style={{ width: 32, height: 32 }} onClick={onClose}>
+          <X size={16} />
+        </button>
+      </div>
+      <EventDetailBody item={item} onEdit={onEdit} onDelete={onDelete} />
     </div>
   );
 }

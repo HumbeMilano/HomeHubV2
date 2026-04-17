@@ -20,7 +20,8 @@ export function subscribeToTable<T>({
   filter,
   onData,
 }: SubscribeOptions<T>): () => void {
-  let channel: RealtimeChannel = supabase.channel(`realtime:${table}`);
+  const uid = Math.random().toString(36).slice(2, 9);
+  let channel: RealtimeChannel = supabase.channel(`realtime:${table}:${uid}`);
 
   const config: Parameters<typeof channel.on>[1] = {
     event,
