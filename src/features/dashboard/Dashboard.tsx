@@ -160,7 +160,7 @@ export default function Dashboard() {
   // ── Grid config dinámico por viewport ─────────────────────────────────────
   const gridConfig = useMemo(() => {
     if (containerWidth < 600) {
-      return { cols: 2, rowHeight: 120, margin: [8, 8] as [number, number] };
+      return { cols: 2, rowHeight: 120, margin: [4, 4] as [number, number] };
     }
     if (containerWidth < 900) {
       return { cols: 4, rowHeight: 100, margin: [10, 10] as [number, number] };
@@ -354,7 +354,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className={styles.gridWrap}>
+      <div className={`${styles.gridWrap} ${styles.editing}`}>
         <GridLayout
           layout={syncedLayout}
           width={containerWidth}
