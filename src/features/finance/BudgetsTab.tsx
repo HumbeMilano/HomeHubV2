@@ -74,7 +74,7 @@ export default function BudgetsTab() {
                 else await updateBudget(modal.id, data);
                 setModal(null);
               }}
-              onDelete={modal !== 'new' ? () => setConfirmDelete(modal) : undefined}
+              onDelete={modal !== 'new' ? async () => setConfirmDelete(modal) : undefined}
               onClose={() => setModal(null)}
             />
           </div>

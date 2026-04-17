@@ -210,7 +210,7 @@ export default function BillsTab() {
                 }
                 setModal(null);
               }}
-              onDelete={modal !== 'new' ? () => setConfirmBill(modal as FinBill) : undefined}
+              onDelete={modal !== 'new' ? async () => setConfirmBill(modal as FinBill) : undefined}
               onClose={() => setModal(null)}
             />
           </div>

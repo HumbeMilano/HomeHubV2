@@ -46,6 +46,7 @@ export default function NotesWidget() {
       position_y: Math.round(y),
       width: w,
       height: h,
+      on_lock_screen: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

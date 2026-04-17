@@ -190,7 +190,7 @@ interface NoteCardProps {
   onUpdate: (patch: Partial<Note>) => void;
   onDeleteRequest: () => void;
   onPinToLock: () => void;
-  lockPanelRef: RefObject<HTMLDivElement>;
+  lockPanelRef: RefObject<HTMLDivElement | null>;
 }
 
 function NoteCard({ note, onUpdate, onDeleteRequest, onPinToLock, lockPanelRef }: NoteCardProps) {
