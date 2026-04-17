@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
+import { format, differenceInCalendarWeeks } from 'date-fns';
 import { Plus, CheckCircle2, Circle } from 'lucide-react';
 import type { Chore } from '../../types';
 import { useChoresStore } from '../../store/choresStore';
 import { useAuthStore } from '../../store/authStore';
 import { subscribeToTable } from '../../lib/realtime';
+import { toast } from '../../store/toastStore';
+import ConfirmModal from '../../components/ConfirmModal';
 import ChoreForm from './ChoreForm';
 import styles from './ChoresPage.module.css';
 
 export default function ChoresPage() {
   const { chores, completions, fetchAll, deleteChore, toggleComplete } = useChoresStore();
   const { activeMember } = useAuthStore();
-  const [modal, setModal] = useState<{ chore?: Chore } | null>(null);
+  const [modal,         setModal]         = useState<{ chore?: Chore } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Chore | null>(null);
   const today = format(new Date(), 'yyyy-MM-dd');
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -34,14 +37,33 @@ export default function ChoresPage() {
     });
   }, []);
 
+  function isScheduledToday(chore: Chore): boolean {
+    const rule = chore.recurrence_rule;
+    if (rule === 'none' || rule === 'daily') return true;
+    const now = new Date();
+    const origin = new Date(chore.created_at);
+    if (rule === 'weekly') {
+      return now.getDay() === origin.getDay();
+    }
+    if (rule === 'biweekly') {
+      const weeksDiff = differenceInCalendarWeeks(now, origin, { weekStartsOn: 0 });
+      return now.getDay() === origin.getDay() && weeksDiff % 2 === 0;
+    }
+    if (rule === 'monthly') {
+      return now.getDate() === origin.getDate();
+    }
+    return true;
+  }
+
   function isDoneToday(chore: Chore) {
     return completions.some(
       (c) => c.chore_id === chore.id && c.scheduled_date === today && !!c.completed_at
     );
   }
 
-  const todo = chores.filter((c) => !isDoneToday(c));
-  const done = chores.filter((c) => isDoneToday(c));
+  const scheduledChores = chores.filter(isScheduledToday);
+  const todo = scheduledChores.filter((c) => !isDoneToday(c));
+  const done = scheduledChores.filter((c) => isDoneToday(c));
 
   return (
     <div className={styles.root}>
@@ -63,6 +85,11 @@ export default function ChoresPage() {
           <div style={{ fontSize: 48 }}>✅</div>
           <p>No chores yet. Add one to get started.</p>
         </div>
+      ) : scheduledChores.length === 0 ? (
+        <div className={styles.empty}>
+          <div style={{ fontSize: 48 }}>🎉</div>
+          <p>Nothing scheduled for today.</p>
+        </div>
       ) : (
         <div className={styles.kanban}>
           <KanbanColumn
@@ -71,11 +98,11 @@ export default function ChoresPage() {
             accentColor="var(--color-chores)"
             isDoneToday={isDoneToday}
             onToggle={(id) => {
-              if (!activeMember) { alert('Select a household member first (Settings → Members).'); return; }
-              toggleComplete(id, activeMember.id, today).catch((e) => alert(`Could not save: ${e?.message ?? e}`));
+              if (!activeMember) { toast('Select a member first (Settings → Members)', 'error'); return; }
+              toggleComplete(id, activeMember.id, today).catch((e) => toast(`Could not save: ${e?.message ?? e}`, 'error'));
             }}
             onEdit={(chore) => setModal({ chore })}
-            onDelete={(id, title) => { if (confirm(`Delete "${title}"?`)) deleteChore(id); }}
+            onDelete={(chore) => setConfirmDelete(chore)}
           />
           <KanbanColumn
             title="Done"
@@ -83,11 +110,11 @@ export default function ChoresPage() {
             accentColor="var(--success)"
             isDoneToday={isDoneToday}
             onToggle={(id) => {
-              if (!activeMember) { alert('Select a household member first (Settings → Members).'); return; }
-              toggleComplete(id, activeMember.id, today).catch((e) => alert(`Could not save: ${e?.message ?? e}`));
+              if (!activeMember) { toast('Select a member first (Settings → Members)', 'error'); return; }
+              toggleComplete(id, activeMember.id, today).catch((e) => toast(`Could not save: ${e?.message ?? e}`, 'error'));
             }}
             onEdit={(chore) => setModal({ chore })}
-            onDelete={(id, title) => { if (confirm(`Delete "${title}"?`)) deleteChore(id); }}
+            onDelete={(chore) => setConfirmDelete(chore)}
           />
         </div>
       )}
@@ -99,6 +126,13 @@ export default function ChoresPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        message={`Delete "${confirmDelete?.title}"?`}
+        onConfirm={() => { if (confirmDelete) { deleteChore(confirmDelete.id); setConfirmDelete(null); } }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }
@@ -110,7 +144,7 @@ interface KanbanColumnProps {
   isDoneToday: (chore: Chore) => boolean;
   onToggle: (id: string) => void;
   onEdit: (chore: Chore) => void;
-  onDelete: (id: string, title: string) => void;
+  onDelete: (chore: Chore) => void;
 }
 
 function KanbanColumn({ title, chores, accentColor, isDoneToday, onToggle, onEdit, onDelete }: KanbanColumnProps) {
@@ -121,7 +155,7 @@ function KanbanColumn({ title, chores, accentColor, isDoneToday, onToggle, onEdi
         <span className={styles.columnTitle}>{title}</span>
         <span className={styles.columnCount}>{chores.length}</span>
       </div>
-      <div className={styles.columnBody}>
+      <div className={`${styles.columnBody} list-item-stagger`}>
         {chores.length === 0 && (
           <p className={styles.columnEmpty}>
             {title === 'To Do' ? 'All done!' : 'Nothing completed yet.'}
@@ -155,7 +189,7 @@ function KanbanColumn({ title, chores, accentColor, isDoneToday, onToggle, onEdi
                 >Edit</button>
                 <button
                   className="btn btn--ghost btn--sm"
-                  onClick={() => onDelete(chore.id, chore.title)}
+                  onClick={() => onDelete(chore)}
                   style={{ color: 'var(--danger)' }}
                 >✕</button>
               </div>

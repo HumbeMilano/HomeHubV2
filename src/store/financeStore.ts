@@ -6,8 +6,13 @@ import type {
 import { supabase } from '../lib/supabase';
 import { createBroadcastChannel } from '../lib/broadcast';
 import { uid, monthKey } from '../lib/utils';
+import { toast } from './toastStore';
 
 const bc = createBroadcastChannel<unknown>('finance');
+
+// Session-scoped guard: prevents auto-pay from re-firing across concurrent fetchAll calls
+// (React StrictMode double-effects, BC-triggered refreshes, etc.)
+const _autoPaidSession = new Set<string>();
 
 interface FinanceState {
   bills:      FinBill[];
@@ -83,34 +88,52 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   // ── Fetch ─────────────────────────────────────────────────────────────────
   fetchAll: async () => {
     set({ loading: true });
-    const [b, i, bu, a, c, o] = await Promise.all([
-      supabase.from('fin_bills').select('*').order('name'),
-      supabase.from('fin_income').select('*').order('date', { ascending: false }),
-      supabase.from('fin_budgets').select('*').order('name'),
-      supabase.from('fin_accounts').select('*').order('name'),
-      supabase.from('fin_categories').select('*').order('name'),
-      supabase.from('fin_overrides').select('*'),
-    ]);
-    set({
-      bills:      (b.data  ?? []) as FinBill[],
-      income:     (i.data  ?? []) as FinIncome[],
-      budgets:    (bu.data ?? []) as FinBudget[],
-      accounts:   (a.data  ?? []) as FinAccount[],
-      categories: (c.data  ?? []) as FinCategory[],
-      overrides:  ((o.data ?? []) as FinOverride[]).map(r => ({ ...r, hidden: r.hidden ?? false })),
-      loading:    false,
-    });
-    // Auto-pay: mark bills paid if auto_pay=true and due_day <= today (current month only)
-    const today = new Date();
-    const { workMonth, workYear } = get();
-    if (workMonth === today.getMonth() + 1 && workYear === today.getFullYear()) {
-      get().getBillsForMonth(workMonth, workYear).forEach((bill) => {
-        if (bill.auto_pay && bill.due_day && today.getDate() >= bill.due_day) {
-          if (!get().getBillStatus(bill.id, workMonth, workYear)) {
-            get().setBillStatus(bill.id, 'paid');
+    try {
+      const [b, i, bu, a, c, o] = await Promise.all([
+        supabase.from('fin_bills').select('*').order('name').limit(500),
+        supabase.from('fin_income').select('*').order('date', { ascending: false }).limit(500),
+        supabase.from('fin_budgets').select('*').order('name').limit(500),
+        supabase.from('fin_accounts').select('*').order('name').limit(500),
+        supabase.from('fin_categories').select('*').order('name').limit(500),
+        supabase.from('fin_overrides').select('*').limit(500),
+      ]);
+      set({
+        bills:      (b.data  ?? []) as FinBill[],
+        income:     (i.data  ?? []) as FinIncome[],
+        budgets:    (bu.data ?? []) as FinBudget[],
+        accounts:   (a.data  ?? []) as FinAccount[],
+        categories: (c.data  ?? []) as FinCategory[],
+        overrides:  ((o.data ?? []) as FinOverride[]).map(r => ({ ...r, hidden: r.hidden ?? false })),
+      });
+
+      // Auto-pay: mark bills paid if auto_pay=true and due_day <= today (current month only).
+      // _autoPaidSession guards against concurrent fetchAll calls (StrictMode, BC-triggered
+      // refreshes from other tabs) re-firing auto-pay for the same bill in the same session.
+      const today = new Date();
+      const { workMonth, workYear } = get();
+      if (workMonth === today.getMonth() + 1 && workYear === today.getFullYear()) {
+        const mk = monthKey(workYear, workMonth);
+        const autoPaid: string[] = [];
+        for (const bill of get().getBillsForMonth(workMonth, workYear)) {
+          const sessionKey = `${bill.id}:${mk}`;
+          if (
+            bill.auto_pay &&
+            bill.due_day &&
+            today.getDate() >= bill.due_day &&
+            !get().getBillStatus(bill.id, workMonth, workYear) &&
+            !_autoPaidSession.has(sessionKey)
+          ) {
+            _autoPaidSession.add(sessionKey);
+            await get().setBillStatus(bill.id, 'paid');
+            autoPaid.push(bill.name);
           }
         }
-      });
+        if (autoPaid.length > 0) {
+          toast(`Auto-pay: marked ${autoPaid.join(', ')} as paid`, 'info');
+        }
+      }
+    } finally {
+      set({ loading: false });
     }
   },
 
@@ -158,7 +181,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
         amount: null, splits: null, status, hidden: false,
       };
       set((s) => ({ overrides: [...s.overrides, row] }));
-      await supabase.from('fin_overrides').insert(row);
+      await supabase.from('fin_overrides')
+        .upsert(row, { onConflict: 'bill_id,month_key', ignoreDuplicates: true });
     }
     bc.post('SET_BILL_STATUS', { billId, status, monthKey: mk });
   },
@@ -294,13 +318,13 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   /** Effective amount for a bill in a given month: current override → prev month override → base_amount */
   getEffectiveAmount: (bill, year, month) => {
     const { overrides } = get();
+    const map = new Map(overrides.map((o) => [`${o.bill_id}:${o.month_key}`, o]));
     const mk = monthKey(year, month);
-    const cur = overrides.find((o) => o.bill_id === bill.id && o.month_key === mk);
+    const cur = map.get(`${bill.id}:${mk}`);
     if (cur?.amount != null) return cur.amount;
-    // Previous month carry-forward
     const prevDate = subMonths(new Date(year, month - 1, 1), 1);
     const prevMk = monthKey(prevDate.getFullYear(), prevDate.getMonth() + 1);
-    const prev = overrides.find((o) => o.bill_id === bill.id && o.month_key === prevMk);
+    const prev = map.get(`${bill.id}:${prevMk}`);
     if (prev?.amount != null) return prev.amount;
     return bill.base_amount;
   },
@@ -308,10 +332,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
   /** All bills visible for the month (filters bills hidden for this month) */
   getBillsForMonth: (month, year) => {
     const mk = monthKey(year, month);
-    return get().bills.filter((bill) => {
-      const ov = get().overrides.find((o) => o.bill_id === bill.id && o.month_key === mk);
-      return !ov?.hidden;
-    });
+    const map = new Map(get().overrides.map((o) => [`${o.bill_id}:${o.month_key}`, o]));
+    return get().bills.filter((bill) => !map.get(`${bill.id}:${mk}`)?.hidden);
   },
 
   getIncomeForMonth: (month, year) => {
@@ -340,7 +362,8 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 
   getBillStatus: (billId, month, year) => {
     const mk = monthKey(year, month);
-    return get().overrides.find((o) => o.bill_id === billId && o.month_key === mk)?.status ?? null;
+    const map = new Map(get().overrides.map((o) => [`${o.bill_id}:${o.month_key}`, o]));
+    return map.get(`${billId}:${mk}`)?.status ?? null;
   },
 
   getPaidCount: (month, year) => {
@@ -368,6 +391,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
 }));
 
 // ── Cross-tab sync via BroadcastChannel ──────────────────────────────────────
-bc.listen(() => {
+const _unsubFinanceBc = bc.listen(() => {
   useFinanceStore.getState().fetchAll();
 });
+if (import.meta.hot) import.meta.hot.dispose(() => { _unsubFinanceBc(); bc.close(); });

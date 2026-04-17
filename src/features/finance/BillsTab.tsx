@@ -5,6 +5,7 @@ import type { FinBill, BillType, BillSplit } from '../../types';
 import { useFinanceStore } from '../../store/financeStore';
 import { useMembersStore } from '../../store/membersStore';
 import { fmt, clamp } from '../../lib/utils';
+import ConfirmModal from '../../components/ConfirmModal';
 import styles from './BillsTab.module.css';
 
 const SWIPE_THRESHOLD = 80;
@@ -13,7 +14,7 @@ const SWIPE_THRESHOLD = 80;
 function BillCard({ bill, onEdit }: { bill: FinBill; onEdit: () => void }) {
   const {
     workMonth, workYear,
-    getBillStatus, setBillStatus, hideFromMonth, getEffectiveAmount, categories,
+    getBillStatus, setBillStatus, hideFromMonth, getEffectiveAmount, getPersonBillShare, categories,
   } = useFinanceStore();
   const { members } = useMembersStore();
 
@@ -46,16 +47,11 @@ function BillCard({ bill, onEdit }: { bill: FinBill; onEdit: () => void }) {
     setDx(0);
   }
 
-  const splitChips = bill.splits.length > 0
+  const splitRows = bill.splits.length > 0
     ? bill.splits.map((s) => {
         const m = members.find((x) => x.id === s.person_id);
         if (!m) return null;
-        const amt = s.type === 'equal'
-          ? effective / bill.splits.length
-          : s.type === 'percent'
-          ? effective * s.value / 100
-          : s.value;
-        return { member: m, amount: amt };
+        return { member: m, amount: getPersonBillShare(bill, s.person_id, effective) };
       }).filter(Boolean)
     : [];
 
@@ -106,17 +102,16 @@ function BillCard({ bill, onEdit }: { bill: FinBill; onEdit: () => void }) {
             {cat ? `${cat.icon} ${cat.name}` : null}
             {!bill.due_day && !cat ? bill.type : null}
           </div>
-          {splitChips.length > 0 && (
-            <div className={styles.splitChips}>
-              {splitChips.map((sc) => sc && (
-                <span
-                  key={sc.member.id}
-                  className={styles.splitChip}
-                  style={{ background: sc.member.color }}
-                  title={`${sc.member.name}: ${fmt(sc.amount)}`}
-                >
-                  {sc.member.name.charAt(0)}
-                </span>
+          {splitRows.length > 0 && (
+            <div className={styles.splitRows}>
+              {splitRows.map((sr) => sr && (
+                <div key={sr.member.id} className={styles.splitRow}>
+                  <span className={styles.splitDot} style={{ background: sr.member.color }}>
+                    {sr.member.name.charAt(0)}
+                  </span>
+                  <span className={styles.splitName}>{sr.member.name}</span>
+                  <span className={styles.splitAmt}>{fmt(sr.amount)}</span>
+                </div>
               ))}
             </div>
           )}
@@ -150,6 +145,7 @@ function BillCard({ bill, onEdit }: { bill: FinBill; onEdit: () => void }) {
 export default function BillsTab() {
   const { workMonth, workYear, getBillsForMonth, addBill, updateBill, deleteBill, setBillOverrideAmount } = useFinanceStore();
   const [modal, setModal] = useState<FinBill | 'new' | null>(null);
+  const [confirmBill, setConfirmBill] = useState<FinBill | null>(null);
 
   const bills  = getBillsForMonth(workMonth, workYear);
   const sorted = [...bills].sort((a, b) => {
@@ -181,6 +177,20 @@ export default function BillsTab() {
         )}
       </div>
 
+      <ConfirmModal
+        open={confirmBill !== null}
+        message={`Delete "${confirmBill?.name}" permanently? This removes it from all months.`}
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          if (confirmBill) {
+            await deleteBill(confirmBill.id);
+            setConfirmBill(null);
+            setModal(null);
+          }
+        }}
+        onCancel={() => setConfirmBill(null)}
+      />
+
       {modal && (
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
@@ -200,12 +210,7 @@ export default function BillsTab() {
                 }
                 setModal(null);
               }}
-              onDelete={modal !== 'new' ? async () => {
-                if (confirm(`Delete "${modal.name}" permanently?`)) {
-                  await deleteBill(modal.id);
-                  setModal(null);
-                }
-              } : undefined}
+              onDelete={modal !== 'new' ? () => setConfirmBill(modal as FinBill) : undefined}
               onClose={() => setModal(null)}
             />
           </div>
@@ -273,6 +278,7 @@ function BillForm({
   const [newCatName,  setNewCatName]  = useState('');
   const [newCatIcon,  setNewCatIcon]  = useState('📋');
   const [saving,      setSaving]      = useState(false);
+  const [errors,      setErrors]      = useState<string[]>([]);
 
   const amt = parseFloat(amount) || 0;
 
@@ -314,8 +320,35 @@ function BillForm({
     setShowCatForm(false);
   }
 
+  function validate(): string[] {
+    const errs: string[] = [];
+    if (!name.trim()) errs.push('Name is required.');
+    const parsedAmt = parseFloat(amount);
+    if (isNaN(parsedAmt) || parsedAmt <= 0) errs.push('Amount must be greater than 0.');
+    const day = parseInt(dueDay);
+    if (dueDay && (isNaN(day) || day < 1 || day > 31)) errs.push('Due day must be between 1 and 31.');
+
+    if (splitsOn && splitEq === 'manual') {
+      const totalPercent = members.reduce((sum, m) => {
+        if (manualTypes[m.id] === '%') return sum + (parseFloat(manualVals[m.id] ?? '0') || 0);
+        return sum;
+      }, 0);
+      if (totalPercent > 100) errs.push(`Split percentages total ${totalPercent.toFixed(1)}% — must be ≤ 100%.`);
+
+      const totalFixed = members.reduce((sum, m) => {
+        if (manualTypes[m.id] === '$') return sum + (parseFloat(manualVals[m.id] ?? '0') || 0);
+        return sum;
+      }, 0);
+      if (totalFixed > parsedAmt) errs.push(`Fixed $ splits ($${totalFixed.toFixed(2)}) exceed the bill amount ($${parsedAmt.toFixed(2)}).`);
+    }
+    return errs;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const errs = validate();
+    if (errs.length > 0) { setErrors(errs); return; }
+    setErrors([]);
     setSaving(true);
     await onSave({
       name:           name.trim(),
@@ -547,6 +580,17 @@ function BillForm({
           </>
         )}
       </div>
+
+      {/* ── Validation errors ── */}
+      {errors.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {errors.map((err, i) => (
+            <p key={i} style={{ fontSize: 'var(--text-sm)', color: 'var(--danger)', margin: 0 }}>
+              {err}
+            </p>
+          ))}
+        </div>
+      )}
 
       {/* ── Actions ── */}
       <div className={styles.formActions}>

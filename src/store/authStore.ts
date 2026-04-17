@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Member } from '../types';
+import { supabase } from '../lib/supabase';
 
 function loadMember(): Member | null {
   try { return JSON.parse(localStorage.getItem('homehub-member') ?? 'null'); }
@@ -15,9 +16,10 @@ interface AuthState {
   lock: () => void;
   unlock: (member: Member) => void;
   setPinError: (v: boolean) => void;
+  verifyMemberExists: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   activeMember: loadMember(),
   isLocked: false,
   pinError: false,
@@ -36,4 +38,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ activeMember: member, isLocked: false, pinError: false });
   },
   setPinError: (v) => set({ pinError: v }),
+
+  verifyMemberExists: async () => {
+    const { activeMember } = get();
+    if (!activeMember) return;
+    const { data } = await supabase
+      .from('household_members')
+      .select('id')
+      .eq('id', activeMember.id)
+      .single();
+    if (!data) {
+      localStorage.removeItem('homehub-member');
+      set({ activeMember: null, isLocked: true });
+    }
+  },
 }));

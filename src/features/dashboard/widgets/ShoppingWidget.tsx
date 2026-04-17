@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { useEffect } from 'react';
+import { X } from 'lucide-react';
 import { useShoppingStore } from '../../../store/shoppingStore';
 import { useAuthStore } from '../../../store/authStore';
+import ItemInput from '../../shopping/ItemInput';
 import styles from './ShoppingWidget.module.css';
 
 export default function ShoppingWidget() {
-  const { lists, items, fetchAll, toggleItem, addItem } = useShoppingStore();
+  const { lists, items, fetchAll, toggleItem, deleteItem } = useShoppingStore();
   const { activeMember } = useAuthStore();
-  const [newItem, setNewItem] = useState('');
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -16,21 +16,6 @@ export default function ShoppingWidget() {
   const listItems = featured ? items.filter((i) => i.list_id === featured.id) : [];
   const unchecked = listItems.filter((i) => !i.checked);
   const checked   = listItems.filter((i) => i.checked);
-
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newItem.trim() || !featured) return;
-    await addItem({
-      list_id:    featured.id,
-      name:       newItem.trim(),
-      category:   null,
-      quantity:   null,
-      checked:    false,
-      checked_by: null,
-      checked_at: null,
-    });
-    setNewItem('');
-  }
 
   if (!featured) {
     return (
@@ -51,39 +36,43 @@ export default function ShoppingWidget() {
 
       <ul className={styles.list}>
         {unchecked.map((item) => (
-          <li
-            key={item.id}
-            className={`${styles.item} ${styles.itemClickable}`}
-            onClick={() => toggleItem(item.id, memberId)}
-          >
-            <span className={styles.checkbox} />
-            {item.name}
+          <li key={item.id} className={`${styles.item} ${styles.itemClickable}`}>
+            <button
+              className={styles.checkbox}
+              onClick={() => toggleItem(item.id, memberId)}
+              aria-label="Mark done"
+            />
+            <span className={styles.itemName} onClick={() => toggleItem(item.id, memberId)}>
+              {item.name}
+            </span>
+            {item.quantity && <span className={styles.qty}>{item.quantity}</span>}
+            <button className={styles.itemDelete} onClick={() => deleteItem(item.id)} aria-label="Remove">
+              <X size={11} />
+            </button>
           </li>
         ))}
+
         {checked.length > 0 && <li className={styles.separator} />}
+
         {checked.map((item) => (
-          <li
-            key={item.id}
-            className={`${styles.item} ${styles.itemChecked} ${styles.itemClickable}`}
-            onClick={() => toggleItem(item.id, memberId)}
-          >
-            <span className={`${styles.checkbox} ${styles.checkboxDone}`}>✓</span>
-            {item.name}
+          <li key={item.id} className={`${styles.item} ${styles.itemChecked} ${styles.itemClickable}`}>
+            <button
+              className={`${styles.checkbox} ${styles.checkboxDone}`}
+              onClick={() => toggleItem(item.id, memberId)}
+              aria-label="Unmark"
+            >✓</button>
+            <span className={styles.itemName} onClick={() => toggleItem(item.id, memberId)}>
+              {item.name}
+            </span>
+            {item.quantity && <span className={styles.qty}>{item.quantity}</span>}
+            <button className={styles.itemDelete} onClick={() => deleteItem(item.id)} aria-label="Remove">
+              <X size={11} />
+            </button>
           </li>
         ))}
       </ul>
 
-      <form className={styles.addRow} onSubmit={handleAdd}>
-        <input
-          className={styles.addInput}
-          placeholder="Add item…"
-          value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
-        />
-        <button type="submit" className={styles.addBtn} disabled={!newItem.trim()}>
-          <Plus size={14} />
-        </button>
-      </form>
+      <ItemInput listId={featured.id} listItems={listItems} allItems={items} />
     </div>
   );
 }

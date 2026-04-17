@@ -94,7 +94,7 @@ export const useMembersStore = create<MembersState>((set, get) => ({
 }));
 
 // Sync other tabs via BroadcastChannel
-bc.listen((msg) => {
+const _unsubMembersBc = bc.listen((msg) => {
   const store = useMembersStore.getState();
   if (msg.type === 'INSERT') {
     const m = msg.payload as unknown as Member;
@@ -109,3 +109,4 @@ bc.listen((msg) => {
     store.setMembers(store.members.filter((m) => m.id !== id));
   }
 });
+if (import.meta.hot) import.meta.hot.dispose(() => { _unsubMembersBc(); bc.close(); });

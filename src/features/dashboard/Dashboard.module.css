@@ -126,6 +126,8 @@
 .widgetInner {
   width: 100%;
   height: 100%;
+  container-type: size;
+  container-name: widget;
 }
 
 /* Override CSS vars so all widget children render white text on color bg */

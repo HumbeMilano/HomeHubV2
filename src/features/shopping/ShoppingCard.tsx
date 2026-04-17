@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Star, X, Check } from 'lucide-react';
 import type { ShoppingList, ShoppingItem } from '../../types';
 import { useShoppingStore } from '../../store/shoppingStore';
 import { useAuthStore } from '../../store/authStore';
+import ConfirmModal from '../../components/ConfirmModal';
 import ItemInput from './ItemInput';
 import styles from './ShoppingCard.module.css';
 
@@ -14,14 +16,10 @@ interface Props {
 export default function ShoppingCard({ list, items, allItems }: Props) {
   const { toggleItem, deleteItem, deleteList, setFeatured } = useShoppingStore();
   const { activeMember } = useAuthStore();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const unchecked = items.filter((i) => !i.checked);
   const checked   = items.filter((i) => i.checked);
-
-  async function handleDeleteList() {
-    if (!confirm(`Delete list "${list.name}" and all its items?`)) return;
-    await deleteList(list.id);
-  }
 
   return (
     <div className={styles.card}>
@@ -35,7 +33,7 @@ export default function ShoppingCard({ list, items, allItems }: Props) {
           onClick={() => setFeatured(list.is_featured ? null : list.id)}
           title={list.is_featured ? 'Remove from dashboard' : 'Show on dashboard'}
         ><Star size={14} /></button>
-        <button className={styles.deleteBtn} onClick={handleDeleteList} title="Delete list">
+        <button className={styles.deleteBtn} onClick={() => setConfirmDelete(true)} title="Delete list">
           <X size={14} />
         </button>
       </div>
@@ -81,6 +79,17 @@ export default function ShoppingCard({ list, items, allItems }: Props) {
       )}
 
       <ItemInput listId={list.id} listItems={items} allItems={allItems} />
+
+      <ConfirmModal
+        open={confirmDelete}
+        message={`Delete list "${list.name}" and all its items?`}
+        danger
+        onConfirm={async () => {
+          setConfirmDelete(false);
+          await deleteList(list.id);
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type { FinAccount, AccountType } from '../../types';
 import { useFinanceStore } from '../../store/financeStore';
 import { useMembersStore } from '../../store/membersStore';
 import { fmt } from '../../lib/utils';
+import ConfirmModal from '../../components/ConfirmModal';
 import styles from './AccountsTab.module.css';
 
 const ACCOUNT_ICONS: Record<AccountType, React.ReactNode> = {
@@ -29,7 +30,8 @@ const ACCOUNT_COLORS: Record<AccountType, string> = {
 
 export default function AccountsTab() {
   const { accounts, addAccount, updateAccount, deleteAccount } = useFinanceStore();
-  const [modal, setModal] = useState<FinAccount | 'new' | null>(null);
+  const [modal,         setModal]         = useState<FinAccount | 'new' | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<FinAccount | null>(null);
 
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
 
@@ -71,17 +73,26 @@ export default function AccountsTab() {
                 else await updateAccount(modal.id, data);
                 setModal(null);
               }}
-              onDelete={modal !== 'new' ? async () => {
-                if (confirm(`Delete "${modal.name}"?`)) {
-                  await deleteAccount(modal.id);
-                  setModal(null);
-                }
-              } : undefined}
+              onDelete={modal !== 'new' ? () => setConfirmDelete(modal) : undefined}
               onClose={() => setModal(null)}
             />
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        message={`Delete "${confirmDelete?.name}"?`}
+        danger
+        onConfirm={async () => {
+          if (confirmDelete) {
+            await deleteAccount(confirmDelete.id);
+            setConfirmDelete(null);
+            setModal(null);
+          }
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

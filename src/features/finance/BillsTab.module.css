@@ -132,23 +132,49 @@
   color: var(--text-3);
 }
 
-.splitChips {
+.splitRows {
   display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-top: 3px;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
 }
 
-.splitChip {
-  width: 18px;
-  height: 18px;
+.splitRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.splitDot {
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: #fff;
+  flex-shrink: 0;
+}
+
+.splitName {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.splitAmt {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .cardRight {

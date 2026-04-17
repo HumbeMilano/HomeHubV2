@@ -4,14 +4,16 @@ import {
   eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth,
   isToday, isSameDay, parseISO,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, X, Calendar, Plus } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, X, Calendar, Plus } from 'lucide-react';
 import type { CalendarItem, FinBill, ReminderCategory, RepeatRule } from '../../types';
 import { useCalendarStore } from '../../store/calendarStore';
 import { useFinanceStore } from '../../store/financeStore';
+import { SkeletonList } from '../../components/Skeleton';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
 import { subscribeToTable } from '../../lib/realtime';
-import { EventDetailBody, EventListRow } from './EventDetail';
+import { EventDetailSheet, EventListRow } from './EventDetail';
+import ConfirmModal from '../../components/ConfirmModal';
 import styles from './CalendarPage.module.css';
 
 // ── Palette ────────────────────────────────────────────────────────────────
@@ -100,14 +102,15 @@ function useLongPress(onPress: () => void, ms = 500) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function CalendarPage() {
-  const { items, fetchAll, deleteItem } = useCalendarStore();
+  const { items, loading, fetchAll, deleteItem } = useCalendarStore();
   const { bills, getEffectiveAmount }   = useFinanceStore();
   const { activeMember } = useAuthStore();
   const { calendarIntent, clearCalendarIntent } = useAppStore();
   const [month,       setMonth]       = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
-  const [form,        setForm]        = useState<{ item?: CalendarItem; defaultDate?: Date } | null>(null);
-  const [detail,      setDetail]      = useState<CalendarItem | null>(null);
+  const [form,          setForm]          = useState<{ item?: CalendarItem; defaultDate?: Date } | null>(null);
+  const [detail,        setDetail]        = useState<CalendarItem | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<CalendarItem | null>(null);
 
   // Consume navigation intent from widgets
   useEffect(() => {
@@ -150,6 +153,16 @@ export default function CalendarPage() {
   function openAddForm(day: Date) {
     setSelectedDay(day);
     setForm({ defaultDate: day });
+  }
+
+  if (loading && items.length === 0) {
+    return (
+      <div className={styles.root}>
+        <div className={styles.dayPanel}>
+          <SkeletonList rows={5} />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -222,15 +235,22 @@ export default function CalendarPage() {
       {detail && (
         <div className="modal-backdrop" onClick={() => setDetail(null)}>
           <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-            <ItemDetailSheet
+            <EventDetailSheet
               item={detail}
               onEdit={() => { setDetail(null); setForm({ item: detail }); }}
-              onDelete={(id) => { if (confirm(`Delete "${detail.title}"?`)) { deleteItem(id); setDetail(null); } }}
+              onDelete={() => setConfirmDelete(detail)}
               onClose={() => setDetail(null)}
             />
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        message={`Delete "${confirmDelete?.title}"?`}
+        onConfirm={() => { if (confirmDelete) { deleteItem(confirmDelete.id); setDetail(null); setConfirmDelete(null); } }}
+        onCancel={() => setConfirmDelete(null)}
+      />
 
       {/* ── Form modal ───────────────────────────────────── */}
       {form && (
@@ -313,30 +333,6 @@ function DayEventList({ items, onView }: {
       {sorted.map((item) => (
         <EventListRow key={item.id} item={item} onClick={() => onView(item)} />
       ))}
-    </div>
-  );
-}
-
-// ── Item Detail Sheet — wraps shared EventDetailBody in a bottom sheet ────
-function ItemDetailSheet({ item, onEdit, onDelete, onClose }: {
-  item: CalendarItem;
-  onEdit: () => void;
-  onDelete: (id: string) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', padding: 'var(--sp-2) 0' }}>
-      <div className="modal-handle" />
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn btn--ghost btn--icon" style={{ width: 32, height: 32 }} onClick={onClose}>
-          <X size={16} />
-        </button>
-      </div>
-      <EventDetailBody
-        item={item}
-        onEdit={onEdit}
-        onDelete={() => onDelete(item.id)}
-      />
     </div>
   );
 }

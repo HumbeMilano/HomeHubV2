@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { ShoppingList, ShoppingItem } from '../types';
 import { supabase } from '../lib/supabase';
 import { createBroadcastChannel } from '../lib/broadcast';
+import { subscribeToTable } from '../lib/realtime';
 import { uid } from '../lib/utils';
 
 const bc = createBroadcastChannel<unknown>('shopping');
@@ -31,8 +32,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true });
     const [{ data: lists }, { data: items }] = await Promise.all([
-      supabase.from('shopping_lists').select('*').order('name'),
-      supabase.from('shopping_items').select('*').order('created_at'),
+      supabase.from('shopping_lists').select('id,name,store_category,color,is_featured,created_by,created_at').order('name').limit(500),
+      supabase.from('shopping_items').select('id,list_id,name,checked,checked_by,checked_at,created_at').order('created_at').limit(500),
     ]);
     set({
       lists: (lists ?? []) as ShoppingList[],
@@ -104,24 +105,21 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   },
 
   setFeatured: async (id) => {
-    // Optimistic: unfeature all, then feature the target (or just unfeature if id is null)
     set((s) => ({
       lists: s.lists.map((l) => ({ ...l, is_featured: l.id === id })),
     }));
-    // Unfeature all first, then feature the selected one
     const { error: e1 } = await supabase
       .from('shopping_lists')
       .update({ is_featured: false })
-      .neq('id', id ?? '');
+      .not('id', 'is', null);
     if (id) {
       const { error: e2 } = await supabase
         .from('shopping_lists')
         .update({ is_featured: true })
         .eq('id', id);
       if (e1 || e2) { await get().fetchAll(); return; }
-    } else {
-      // unfeature all
-      await supabase.from('shopping_lists').update({ is_featured: false }).gte('id', '');
+    } else if (e1) {
+      await get().fetchAll(); return;
     }
     bc.post('LIST_FEATURED', { id });
   },
@@ -130,26 +128,65 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   setItems: (items) => set({ items }),
 }));
 
-bc.listen((msg) => {
+function isObj(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null;
+}
+
+const _unsubShoppingBc = bc.listen((msg) => {
   const store = useShoppingStore.getState();
   if (msg.type === 'LIST_INSERT') {
+    if (!isObj(msg.payload) || typeof msg.payload.id !== 'string') return;
     const l = msg.payload as unknown as ShoppingList;
     if (!store.lists.find((x) => x.id === l.id)) store.setLists([...store.lists, l]);
   } else if (msg.type === 'LIST_DELETE') {
-    const { id } = msg.payload as unknown as { id: string };
+    if (!isObj(msg.payload) || typeof msg.payload.id !== 'string') return;
+    const { id } = msg.payload as { id: string };
     store.setLists(store.lists.filter((l) => l.id !== id));
     store.setItems(store.items.filter((i) => i.list_id !== id));
   } else if (msg.type === 'ITEM_INSERT') {
+    if (!isObj(msg.payload) || typeof msg.payload.id !== 'string') return;
     const i = msg.payload as unknown as ShoppingItem;
     if (!store.items.find((x) => x.id === i.id)) store.setItems([...store.items, i]);
   } else if (msg.type === 'ITEM_TOGGLE') {
-    const { id, patch } = msg.payload as unknown as { id: string; patch: Partial<ShoppingItem> };
+    if (!isObj(msg.payload) || typeof msg.payload.id !== 'string') return;
+    const { id, patch } = msg.payload as { id: string; patch: Partial<ShoppingItem> };
     store.setItems(store.items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   } else if (msg.type === 'ITEM_DELETE') {
-    const { id } = msg.payload as unknown as { id: string };
+    if (!isObj(msg.payload) || typeof msg.payload.id !== 'string') return;
+    const { id } = msg.payload as { id: string };
     store.setItems(store.items.filter((i) => i.id !== id));
   } else if (msg.type === 'LIST_FEATURED') {
-    const { id } = msg.payload as unknown as { id: string | null };
+    if (!isObj(msg.payload)) return;
+    const id = typeof msg.payload.id === 'string' ? msg.payload.id : null;
     store.setLists(store.lists.map((l) => ({ ...l, is_featured: l.id === id })));
   }
 });
+const _unsubListsRt = subscribeToTable<ShoppingList>({
+  table: 'shopping_lists',
+  onData: ({ eventType, new: row, old }) => {
+    const store = useShoppingStore.getState();
+    if (eventType === 'INSERT' && row && !store.lists.find((l) => l.id === row.id))
+      store.setLists([...store.lists, row]);
+    else if (eventType === 'UPDATE' && row)
+      store.setLists(store.lists.map((l) => (l.id === row.id ? row : l)));
+    else if (eventType === 'DELETE' && old) {
+      store.setLists(store.lists.filter((l) => l.id !== old.id));
+      store.setItems(store.items.filter((i) => i.list_id !== old.id));
+    }
+  },
+});
+
+const _unsubItemsRt = subscribeToTable<ShoppingItem>({
+  table: 'shopping_items',
+  onData: ({ eventType, new: row, old }) => {
+    const store = useShoppingStore.getState();
+    if (eventType === 'INSERT' && row && !store.items.find((i) => i.id === row.id))
+      store.setItems([...store.items, row]);
+    else if (eventType === 'UPDATE' && row)
+      store.setItems(store.items.map((i) => (i.id === row.id ? row : i)));
+    else if (eventType === 'DELETE' && old)
+      store.setItems(store.items.filter((i) => i.id !== old.id));
+  },
+});
+
+if (import.meta.hot) import.meta.hot.dispose(() => { _unsubListsRt(); _unsubItemsRt(); _unsubShoppingBc(); bc.close(); });

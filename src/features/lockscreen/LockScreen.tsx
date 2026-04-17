@@ -1,125 +1,296 @@
-import { useEffect, useState } from 'react';
-import type { Member } from '../../types';
+import { useEffect, useState, type ReactNode } from 'react';
+import { format, differenceInCalendarWeeks, parseISO } from 'date-fns';
+import { CheckSquare, StickyNote } from 'lucide-react';
+import type { CalendarItem, Chore, ChoreCompletion, Member, Note } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
+import { useAppStore } from '../../store/appStore';
 import PhotoSlideshow from './PhotoSlideshow';
-import PinPad from './PinPad';
 import styles from './LockScreen.module.css';
-import { format } from 'date-fns';
+
+const PIN_LENGTH = 4;
 
 export default function LockScreen() {
-  const { unlock, pinError, setPinError } = useAuthStore();
-  const [members, setMembers] = useState<Member[]>([]);
-  const [selected, setSelected] = useState<Member | null>(null);
+  const { unlock } = useAuthStore();
+  const photoSlideInterval = useAppStore((s) => s.photoSlideInterval);
+
   const [now, setNow] = useState(new Date());
+  const [digits, setDigits] = useState<string[]>([]);
+  const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [errorKey, setErrorKey] = useState(0);   // increments each error → forces shake replay
+  const [showPin, setShowPin] = useState(false);  // PIN overlay hidden by default
+  const [members, setMembers] = useState<Member[]>([]);
 
-  // Load household members
-  useEffect(() => {
-    supabase
-      .from('household_members')
-      .select('*')
-      .order('name')
-      .then(({ data }) => {
-        if (data) setMembers(data as Member[]);
-      });
-  }, []);
-
-  // Clock tick
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  function handleSuccess(member: Member) {
-    unlock(member);
+  useEffect(() => {
+    supabase
+      .from('household_members')
+      .select('id, name, color, avatar_url, supabase_user_id, created_at')
+      .order('name')
+      .then(({ data }) => { if (data) setMembers(data as Member[]); });
+  }, []);
+
+  // Auto-submit when 4 digits entered
+  useEffect(() => {
+    if (digits.length !== PIN_LENGTH || verifying || members.length === 0) return;
+
+    const pin = digits.join('');
+    setVerifying(true);
+
+    Promise.all(
+      members.map((m) =>
+        supabase.functions
+          .invoke('verify-pin', { body: { member_id: m.id, pin } })
+          .then(({ data }) => ({ member: m, match: data?.match === true }))
+          .catch(() => ({ member: m, match: false }))
+      )
+    ).then((results) => {
+      setVerifying(false);
+      const matched = results.find((r) => r.match);
+      if (matched) {
+        unlock(matched.member);
+      } else {
+        setError(true);
+        setErrorMsg('Incorrect PIN');
+        setErrorKey((k) => k + 1);  // force shake animation replay
+        setTimeout(() => {
+          setDigits([]);
+          setError(false);
+          setErrorMsg('');
+          setShowPin(false);  // auto-close overlay after error clears
+        }, 900);
+      }
+    });
+  }, [digits, verifying, members, unlock]);
+
+  function press(key: string) {
+    if (digits.length < PIN_LENGTH && !verifying && !error) {
+      setDigits((d) => [...d, key]);
+    }
   }
 
-  function handleCancel() {
-    setSelected(null);
-    setPinError(false);
+  function backspace() {
+    if (!verifying) setDigits((d) => d.slice(0, -1));
+  }
+
+  function handleRootClick() {
+    if (!showPin) setShowPin(true);
   }
 
   return (
-    <div className={styles.root}>
-      <PhotoSlideshow interval={30_000} />
+    <div className={styles.root} onClick={handleRootClick}>
+      <PhotoSlideshow interval={photoSlideInterval} />
 
-      {/* Overlay */}
-      <div className={styles.overlay}>
-        {/* Clock */}
-        <div className={styles.clock}>
-          <span className={styles.time}>
-            {format(now, 'h:mm')}<span className={styles.ampm}>{format(now, 'a')}</span>
-          </span>
-          <span className={styles.date}>{format(now, 'EEEE, MMMM d')}</span>
-        </div>
+      <div className={styles.layout}>
 
-        {/* Quick info bar */}
-        <QuickInfo />
+        {/* ── Left: clock + events ─────────────────────── */}
+        <div className={styles.leftCol}>
 
-        {/* Member picker */}
-        <div className={styles.memberSection}>
-          <p className={styles.prompt}>Who&apos;s there?</p>
-          <div className={styles.memberGrid}>
-            {members.length === 0 ? (
-              // Dev bypass when no members in DB yet
-              <DevBypass onUnlock={handleSuccess} />
-            ) : (
-              members.map((m) => (
-                <button
-                  key={m.id}
-                  className={styles.memberBtn}
-                  onClick={() => { setSelected(m); setPinError(false); }}
-                >
-                  <div className={styles.memberAvatar} style={{ background: m.color }}>
-                    {m.avatar_url
-                      ? <img src={m.avatar_url} alt={m.name} />
-                      : m.name.slice(0, 2).toUpperCase()
-                    }
-                  </div>
-                  <span className={styles.memberName}>{m.name.split(' ')[0]}</span>
-                </button>
-              ))
-            )}
+          <div className={styles.clock}>
+            <span className={styles.time}>
+              {format(now, 'h:mm')}
+              <span className={styles.ampm}>{format(now, 'a')}</span>
+            </span>
+            <span className={styles.date}>{format(now, 'EEEE, MMMM d')}</span>
           </div>
+
+          <UpcomingEvents />
         </div>
+
+        {/* ── Right: sticky notes panel ───────────────────────── */}
+        <LockNotes />
       </div>
 
-      {/* PIN pad — slides in over the lock screen */}
-      {selected && (
-        <PinPad
-          member={selected}
-          onSuccess={handleSuccess}
-          onCancel={handleCancel}
-          pinError={pinError}
-        />
+      {/* ── Unlock hint (visible when PIN is hidden) ──────────── */}
+      {!showPin && (
+        <p className={styles.unlockHint}>Tap to unlock</p>
       )}
+
+      {/* ── PIN overlay (centered, appears on tap) ────────────── */}
+      {showPin && (
+        <div
+          className={styles.pinOverlay}
+          onClick={() => { if (!verifying) setShowPin(false); }}
+        >
+          <div className={styles.pinBox} onClick={(e) => e.stopPropagation()}>
+            <p className={styles.pinPrompt}>
+              {verifying ? 'Verifying…' : error ? errorMsg : 'Enter PIN'}
+            </p>
+
+            <div
+              key={errorKey}
+              className={`${styles.dots} ${error ? styles.dotsShake : ''}`}
+            >
+              {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+                <span
+                  key={i}
+                  className={`${styles.dot} ${error ? styles.dotError : i < digits.length ? styles.dotFilled : ''}`}
+                />
+              ))}
+            </div>
+
+            <div className={styles.numpad}>
+              {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((key, i) => (
+                <button
+                  key={i}
+                  className={`${styles.numkey} ${key === '' ? styles.numkeyEmpty : ''}`}
+                  disabled={key === '' || verifying}
+                  onClick={() => key === '⌫' ? backspace() : key !== '' && press(key)}
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {import.meta.env.DEV && <DevBypass members={members} onUnlock={unlock} />}
     </div>
   );
 }
 
-// Shows today's chore count + next reminder as quick glance info
-function QuickInfo() {
-  // TODO in Phase 4: query chores + reminders
+/* ── Upcoming events ─────────────────────────────────────────────────────── */
+function UpcomingEvents() {
+  const [events, setEvents] = useState<CalendarItem[]>([]);
+  const [chores, setChores] = useState<Chore[]>([]);
+  const [completions, setCompletions] = useState<ChoreCompletion[]>([]);
+
+  useEffect(() => {
+    const nowIso = new Date().toISOString();
+    const today  = format(new Date(), 'yyyy-MM-dd');
+
+    supabase
+      .from('calendar_items')
+      .select('id, type, title, color, all_day, start_at, end_at, repeat, notes, reminder_category, member_id, created_at')
+      .gte('start_at', nowIso)
+      .order('start_at')
+      .limit(5)
+      .then(({ data }) => setEvents((data ?? []) as CalendarItem[]));
+
+    supabase
+      .from('chores')
+      .select('id, title, recurrence_rule, created_at, description, category, created_by')
+      .then(({ data }) => setChores((data ?? []) as Chore[]));
+
+    supabase
+      .from('chore_completions')
+      .select('chore_id, scheduled_date, completed_at, id, completed_by')
+      .eq('scheduled_date', today)
+      .then(({ data }) => setCompletions((data ?? []) as ChoreCompletion[]));
+  }, []);
+
+  const now   = new Date();
+  const today = format(now, 'yyyy-MM-dd');
+
+  function isScheduledToday(chore: Chore): boolean {
+    const rule   = chore.recurrence_rule;
+    if (rule === 'none' || rule === 'daily') return true;
+    const origin = new Date(chore.created_at);
+    if (rule === 'weekly')   return now.getDay() === origin.getDay();
+    if (rule === 'biweekly') {
+      const wksDiff = differenceInCalendarWeeks(now, origin, { weekStartsOn: 0 });
+      return now.getDay() === origin.getDay() && wksDiff % 2 === 0;
+    }
+    if (rule === 'monthly')  return now.getDate() === origin.getDate();
+    return true;
+  }
+
+  const isDoneToday = (id: string) =>
+    completions.some((c) => c.chore_id === id && c.scheduled_date === today && !!c.completed_at);
+
+  const pendingChores = chores.filter((c) => isScheduledToday(c) && !isDoneToday(c.id));
+
+  const rows: ReactNode[] = [];
+
+  events.forEach((item) => {
+    let label = '';
+    try {
+      label = format(parseISO(item.start_at), item.all_day ? 'MMM d' : 'h:mm a');
+    } catch { label = ''; }
+    rows.push(
+      <div key={item.id} className={styles.eventRow}>
+        <span className={styles.eventDot} style={{ background: item.color ?? 'rgba(255,255,255,.5)' }} />
+        <span className={styles.eventTime}>{label}</span>
+        <span className={styles.eventTitle}>{item.title}</span>
+      </div>
+    );
+  });
+
+  if (pendingChores.length > 0) {
+    rows.push(
+      <div key="chores" className={styles.eventRow}>
+        <CheckSquare size={12} style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }} />
+        <span className={styles.eventTime}>Today</span>
+        <span className={styles.eventTitle}>
+          {pendingChores.length} chore{pendingChores.length !== 1 ? 's' : ''} pending
+        </span>
+      </div>
+    );
+  }
+
+  if (rows.length === 0) return null;
+
+  return <div className={styles.eventsPanel}>{rows}</div>;
+}
+
+/* ── Lock screen sticky notes ────────────────────────────────────────────── */
+function LockNotes() {
+  const [notes, setNotes] = useState<Note[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('notes')
+      .select('id, content, color, on_lock_screen, updated_at')
+      .eq('on_lock_screen', true)
+      .order('updated_at', { ascending: false })
+      .limit(6)
+      .then(({ data, error }) => {
+        if (!error && data) setNotes(data as Note[]);
+      });
+  }, []);
+
+  if (notes.length === 0) return null;
+
   return (
-    <div className={styles.quickInfo}>
-      <span>📅 Today&apos;s chores loading…</span>
+    <div className={styles.notesPanel}>
+      <div className={styles.notesPanelHeader}>
+        <StickyNote size={13} />
+        Notes
+      </div>
+      <div className={styles.notesList}>
+        {notes.map((note) => (
+          <div key={note.id} className={styles.noteCard} style={{ background: note.color }}>
+            <p className={styles.noteContent}>{note.content}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function DevBypass({ onUnlock }: { onUnlock: (m: Member) => void }) {
-  const dev: Member = {
-    id: 'dev', name: 'Dev User', color: '#5b5bf6',
-    avatar_url: null, supabase_user_id: null, created_at: '',
-  };
+/* ── Dev bypass ──────────────────────────────────────────────────────────── */
+function DevBypass({ members, onUnlock }: { members: Member[]; onUnlock: (m: Member) => void }) {
+  const dev: Member = { id: 'dev', name: 'Dev', color: '#5b5bf6', avatar_url: null, supabase_user_id: null, created_at: '' };
+  const targets = members.length > 0 ? members : [dev];
+
   return (
-    <button
-      className={styles.memberBtn}
-      onClick={() => onUnlock(dev)}
-      title="No members in DB — dev bypass"
-    >
-      <div className={styles.memberAvatar} style={{ background: '#5b5bf6' }}>DV</div>
-      <span className={styles.memberName}>Dev</span>
-    </button>
+    <div style={{ position: 'absolute', bottom: 12, left: 16, display: 'flex', gap: 8 }}>
+      {targets.map((m) => (
+        <button
+          key={m.id}
+          onClick={(e) => { e.stopPropagation(); onUnlock(m); }}
+          style={{ fontSize: 10, color: 'rgba(255,255,255,.35)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
+        >
+          [{m.name.split(' ')[0]}]
+        </button>
+      ))}
+    </div>
   );
 }

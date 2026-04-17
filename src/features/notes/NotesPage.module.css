@@ -6,6 +6,15 @@
   padding: var(--sp-5);
 }
 
+/* ── Two-column layout: board + lock panel ─── */
+.mainLayout {
+  flex: 1;
+  display: flex;
+  gap: var(--sp-4);
+  overflow: hidden;
+  min-height: 0;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -20,15 +29,128 @@
   letter-spacing: -0.5px;
 }
 
-/* Infinite canvas */
+/* ── Infinite canvas ─────────────────────────────────────────── */
 .board {
   flex: 1;
+  min-width: 0;
   position: relative;
   overflow: hidden;
   background: var(--bg-3);
   border-radius: var(--r-lg);
   background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
   background-size: 24px 24px;
+}
+
+/* ── Lock screen panel ───────────────────────────────────────── */
+.lockPanel {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg-2);
+  border-radius: var(--r-lg);
+  border: 0.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  transition: border-color var(--transition), background var(--transition);
+  overflow: hidden;
+}
+
+.lockPanelActive {
+  border-color: var(--accent);
+  background: rgba(10,132,255,0.06);
+}
+
+.lockPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  flex-shrink: 0;
+}
+
+.lockPanelHint {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.lockPanelEmpty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lockDropZone {
+  width: 100%;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.lockNotesList {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.lockNote {
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.14);
+}
+
+.lockNoteBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lockNoteColor {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.2);
+}
+
+.lockNoteUnpin {
+  display: flex;
+  align-items: center;
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  color: rgba(0,0,0,.35);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+.lockNoteUnpin:hover { color: rgba(0,0,0,.7); background: rgba(0,0,0,.08); }
+
+.lockNoteText {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(0,0,0,.72);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Sticky note card */
@@ -112,4 +234,18 @@
   color: var(--text-3);
   font-size: var(--text-sm);
   pointer-events: none;
+}
+
+.savingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.35);
+  animation: pulse 0.8s ease-in-out infinite alternate;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  from { opacity: 0.3; }
+  to   { opacity: 0.8; }
 }

@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import type { FinBudget } from '../../types';
 import { useFinanceStore } from '../../store/financeStore';
 import { fmt, clamp } from '../../lib/utils';
+import ConfirmModal from '../../components/ConfirmModal';
 import styles from './BudgetsTab.module.css';
 
 const COLORS = ['#818cf8','#34d399','#fb923c','#f472b6','#4ade80','#facc15','#60a5fa','#f87171','#a78bfa','#2dd4bf'];
@@ -10,7 +11,8 @@ const ICONS  = ['🏠','🍔','🚗','🎬','💊','🛒','✈️','📚','💡'
 
 export default function BudgetsTab() {
   const { budgets, workMonth, workYear, addBudget, updateBudget, deleteBudget, getBudgetSpent } = useFinanceStore();
-  const [modal, setModal] = useState<FinBudget | 'new' | null>(null);
+  const [modal,         setModal]         = useState<FinBudget | 'new' | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<FinBudget | null>(null);
 
   return (
     <div className={styles.root}>
@@ -72,17 +74,26 @@ export default function BudgetsTab() {
                 else await updateBudget(modal.id, data);
                 setModal(null);
               }}
-              onDelete={modal !== 'new' ? async () => {
-                if (confirm(`Delete "${modal.name}"?`)) {
-                  await deleteBudget(modal.id);
-                  setModal(null);
-                }
-              } : undefined}
+              onDelete={modal !== 'new' ? () => setConfirmDelete(modal) : undefined}
               onClose={() => setModal(null)}
             />
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmDelete !== null}
+        message={`Delete "${confirmDelete?.name}"?`}
+        danger
+        onConfirm={async () => {
+          if (confirmDelete) {
+            await deleteBudget(confirmDelete.id);
+            setConfirmDelete(null);
+            setModal(null);
+          }
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

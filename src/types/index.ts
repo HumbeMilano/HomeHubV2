@@ -82,6 +82,9 @@ export interface Note {
   color: string;
   author_id: string | null;
   is_shared: boolean;
+  /** If true, this note appears in the lock screen right panel.
+   *  Requires DB migration: ALTER TABLE notes ADD COLUMN on_lock_screen boolean NOT NULL DEFAULT false; */
+  on_lock_screen: boolean;
   position_x: number;
   position_y: number;
   width: number;
@@ -211,6 +214,7 @@ export type AppPage =
   | 'shopping'
   | 'finance'
   | 'notes'
-  | 'chores';
+  | 'chores'
+  | 'reminders';
 
 export type Theme = 'dark' | 'light';

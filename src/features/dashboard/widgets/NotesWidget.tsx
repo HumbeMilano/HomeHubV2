@@ -134,7 +134,7 @@ function MiniNote({ note, boardRef, onUpdate, onDelete }: {
       onMouseDown={onMouseDown}
     >
       <div className={styles.noteHandle}>
-        <GripVertical size={12} style={{ color: 'rgba(0,0,0,.3)', flexShrink: 0 }} />
+        <GripVertical size={12} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
         <button className={styles.del} onClick={(e) => { e.stopPropagation(); onDelete(); }}><X size={10} /></button>
       </div>
       <textarea
