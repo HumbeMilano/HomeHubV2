@@ -43,7 +43,7 @@
 
 /* ── Lock screen panel ───────────────────────────────────────── */
 .lockPanel {
-  width: 220px;
+  width: var(--notes-panel-width);
   flex-shrink: 0;
   background: var(--bg-2);
   border-radius: var(--r-lg);
@@ -248,4 +248,68 @@
 @keyframes pulse {
   from { opacity: 0.3; }
   to   { opacity: 0.8; }
+}
+
+/* ── Mobile: feed layout (reemplaza canvas absoluto) ────────────────────── */
+@media (max-width: 768px) {
+  .root {
+    padding: var(--page-padding);
+    overflow-y: auto;
+    height: auto;
+  }
+
+  .mainLayout {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .board {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    overflow-y: auto;
+    background-image: none;
+    height: auto;
+    padding: var(--sp-2) 0;
+  }
+
+  .note {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100px;
+    cursor: default;
+  }
+
+  .noteHandle {
+    opacity: 1;
+  }
+
+  .lockPanel {
+    width: 100%;
+    flex-shrink: 0;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .empty {
+    position: relative;
+    inset: auto;
+    padding: var(--sp-10) 0;
+    text-align: center;
+  }
+}
+
+/* ── Tablet (769–1023px) ─────────────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1023px) {
+  .root {
+    padding: var(--page-padding);
+  }
+
+  .lockPanel {
+    width: clamp(180px, 26%, 240px);
+  }
 }

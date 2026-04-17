@@ -329,3 +329,69 @@
   .time { font-size: 110px; }
   .numkey { width: 70px; height: 70px; font-size: 28px; }
 }
+
+/* ── Mobile landscape ────────────────────────────────────────────────────── */
+@media (max-width: 768px) and (orientation: landscape) {
+  .leftCol {
+    padding-top: var(--sp-4);
+  }
+
+  .time {
+    font-size: 60px;
+    letter-spacing: -2px;
+  }
+
+  .notesPanel {
+    display: none;
+  }
+
+  .pinOverlay {
+    align-items: center;
+    padding-bottom: 0;
+  }
+
+  .numkey {
+    width: 52px;
+    height: 52px;
+    font-size: 20px;
+  }
+}
+
+/* ── Tablet landscape (769–1023px) ──────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1023px) and (orientation: landscape) {
+  .time {
+    font-size: 90px;
+  }
+
+  .date {
+    font-size: clamp(13px, 1.8vw, 18px);
+  }
+
+  .numkey {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+
+  .notesPanel {
+    display: flex;
+    width: clamp(160px, 20vw, 220px);
+  }
+}
+
+/* ── Tablet portrait (769–1023px) ────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1023px) and (orientation: portrait) {
+  .time {
+    font-size: clamp(72px, 12vw, 96px);
+  }
+
+  .numkey {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+
+  .notesPanel {
+    display: none;
+  }
+}

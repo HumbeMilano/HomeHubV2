@@ -120,7 +120,7 @@
   z-index: 2;
 }
 
-.bentoCell:hover .openBtn { opacity: 1; }
+.gridCell:hover .openBtn { opacity: 1; }
 
 /* ── Widget inner — on colored cells, override tokens to white ───────────── */
 .widgetInner {
@@ -142,5 +142,58 @@
   --danger:  rgba(255,255,255,0.90);
   --accent:  rgba(255,255,255,1.0);
   color: rgba(255,255,255,1.0);
+}
+
+/* ── Mobile static feed ─────────────────────────────────────────────────── */
+.mobileGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: 0;
+}
+
+.mobileWidget {
+  border-radius: var(--r-widget);
+  overflow: hidden;
+  background: var(--bg-2);
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  position: relative;
+}
+
+/* ── Responsive padding ──────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .root {
+    padding: var(--page-padding);
+    gap: var(--sp-3);
+  }
+
+  .greeting {
+    font-size: var(--text-lg);
+  }
+
+  .gridWrap {
+    display: none;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .root {
+    padding: var(--page-padding);
+  }
+
+  .greeting {
+    font-size: var(--text-xl);
+  }
+}
+
+@media (min-width: 1024px) {
+  .root {
+    padding: var(--page-padding);
+  }
+
+  .greeting {
+    font-size: var(--text-2xl);
+  }
 }
 

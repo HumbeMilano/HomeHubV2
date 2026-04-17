@@ -170,3 +170,25 @@
     --shadow-lg: 0 16px 48px rgba(0,0,0,.14), 0 4px 16px rgba(0,0,0,.08);
   }
 }
+
+/* ── Responsive layout tokens ────────────────────────────────────────────── */
+:root {
+  --page-padding:   var(--sp-5);   /* 20px — desktop default */
+  --page-padding-h: var(--sp-5);
+  --day-panel-width:   min(400px, 35%);
+  --notes-panel-width: clamp(200px, 22%, 280px);
+}
+
+@media (max-width: 1023px) {
+  :root {
+    --page-padding:   var(--sp-4);   /* 16px — tablet */
+    --page-padding-h: var(--sp-4);
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --page-padding:   var(--sp-3);   /* 12px — mobile */
+    --page-padding-h: var(--sp-3);
+  }
+}

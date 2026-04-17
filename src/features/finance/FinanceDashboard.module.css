@@ -41,3 +41,9 @@
   .income  { grid-row: 4; }
   .persons { grid-row: 5; }
 }
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .grid {
+    padding: var(--page-padding);
+  }
+}

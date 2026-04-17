@@ -67,3 +67,45 @@
   color: var(--text-3);
   text-transform: capitalize;
 }
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .root {
+    padding: var(--page-padding);
+    gap: var(--sp-4);
+  }
+
+  .heading {
+    font-size: var(--text-lg);
+  }
+
+  .groupLabel {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 1;
+    padding-top: var(--sp-2);
+    margin-top: var(--sp-1);
+  }
+
+  .row {
+    padding: var(--sp-2) var(--sp-3);
+  }
+}
+
+/* ── Tablet (769–1023px) ─────────────────────────────────────────────────── */
+@media (min-width: 769px) and (max-width: 1023px) {
+  .root {
+    padding: var(--page-padding);
+    max-width: 680px;
+    margin-inline: auto;
+  }
+}
+
+/* ── Desktop ─────────────────────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  .root {
+    max-width: 720px;
+    padding: var(--page-padding);
+  }
+}

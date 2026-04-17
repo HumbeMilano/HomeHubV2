@@ -450,3 +450,9 @@
   padding-top: var(--sp-2);
   border-top: 0.5px solid var(--border);
 }
+
+@media (max-width: 640px) {
+  .row2 {
+    grid-template-columns: 1fr;
+  }
+}

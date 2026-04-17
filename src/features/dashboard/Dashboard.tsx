@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import GridLayout, { type LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import {
@@ -89,6 +89,20 @@ const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: 'shopping',   x: 7,  y: 2,  w: 5, h: 5, minW: 2, minH: 2 },
 ];
 
+// ── Alturas fijas de widgets en mobile feed ───────────────────────────────
+const MOBILE_WIDGET_HEIGHTS: Partial<Record<WidgetType, number>> = {
+  clock:      100,
+  weather:    100,
+  finSummary: 160,
+  calendar:   300,
+  shopping:   240,
+  notes:      180,
+  reminders:  180,
+};
+
+// Orden del feed mobile (solo los 5 widgets principales)
+const MOBILE_WIDGET_ORDER: WidgetType[] = ['clock', 'weather', 'finSummary', 'calendar', 'shopping'];
+
 // ── Persistence ────────────────────────────────────────────────────────────
 const LAYOUT_KEY  = 'homehub-dash-layout';
 const WIDGETS_KEY = 'homehub-dash-widgets';
@@ -114,9 +128,6 @@ function greeting(name: string) {
   return `${time}, ${name}`;
 }
 
-const GRID_COLS       = 12;
-const GRID_ROW_HEIGHT = 80;
-const GRID_MARGIN     = [10, 10] as [number, number];
 const GRID_PADDING    = [0,  0]  as [number, number];
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -128,7 +139,34 @@ export default function Dashboard() {
   const [addOpen,  setAddOpen]    = useState(false);
   const [widgets,  setWidgets]    = useState<WidgetDef[]>(loadWidgets);
   const [layout,   setLayout]     = useState<LayoutItem[]>(loadLayout);
-  const [containerWidth, setContainerWidth] = useState(1200);
+  const [containerWidth, setContainerWidth] = useState(() =>
+    typeof window !== 'undefined'
+      ? Math.max(300, window.innerWidth - 64 - 40)
+      : 1200
+  );
+
+  // ── Detectar viewport mobile (<600px) ─────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth < 600
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 599px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    setIsMobile(mq.matches);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // ── Grid config dinámico por viewport ─────────────────────────────────────
+  const gridConfig = useMemo(() => {
+    if (containerWidth < 600) {
+      return { cols: 2, rowHeight: 120, margin: [8, 8] as [number, number] };
+    }
+    if (containerWidth < 900) {
+      return { cols: 4, rowHeight: 100, margin: [10, 10] as [number, number] };
+    }
+    return { cols: 12, rowHeight: 80, margin: [10, 10] as [number, number] };
+  }, [containerWidth]);
 
   useEffect(() => {
     const el = document.querySelector('.page-area') as HTMLElement | null;
@@ -181,6 +219,50 @@ export default function Dashboard() {
 
   // ── View mode (static grid — same layout as edit, no drag/resize) ────────
   if (!editMode) {
+    // Mobile: feed estático sin GridLayout
+    if (isMobile) {
+      const visibleWidgets = MOBILE_WIDGET_ORDER
+        .map((type) => widgets.find((w) => w.type === type))
+        .filter((w): w is WidgetDef => Boolean(w));
+
+      return (
+        <div className={styles.root}>
+          <div className={styles.header}>
+            <span className={styles.greeting}>
+              {activeMember ? `Hola, ${activeMember.name.split(' ')[0]}` : 'HomeHub'}
+            </span>
+          </div>
+          <div className={styles.mobileGrid}>
+            {visibleWidgets.map(({ id, type }) => {
+              const target = WIDGET_TARGET[type];
+              const height = MOBILE_WIDGET_HEIGHTS[type];
+              return (
+                <div
+                  key={id}
+                  className={styles.mobileWidget}
+                  style={height ? { height } : undefined}
+                >
+                  <div className={styles.widgetInner}>
+                    <WidgetContent type={type} />
+                  </div>
+                  {target && (
+                    <button
+                      className={styles.openBtn}
+                      style={{ opacity: 1 }}
+                      onClick={() => navigate(target)}
+                      title="Abrir"
+                    >
+                      <ArrowUpRight size={14} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className={styles.root}>
         <div className={styles.header}>
@@ -200,7 +282,7 @@ export default function Dashboard() {
           <GridLayout
             layout={syncedLayout}
             width={containerWidth}
-            gridConfig={{ cols: GRID_COLS, rowHeight: GRID_ROW_HEIGHT, margin: GRID_MARGIN, containerPadding: GRID_PADDING }}
+            gridConfig={{ cols: gridConfig.cols, rowHeight: gridConfig.rowHeight, margin: gridConfig.margin, containerPadding: GRID_PADDING }}
             dragConfig={{ enabled: false }}
             resizeConfig={{ enabled: false }}
           >
@@ -276,7 +358,7 @@ export default function Dashboard() {
         <GridLayout
           layout={syncedLayout}
           width={containerWidth}
-          gridConfig={{ cols: GRID_COLS, rowHeight: GRID_ROW_HEIGHT, margin: GRID_MARGIN, containerPadding: GRID_PADDING }}
+          gridConfig={{ cols: gridConfig.cols, rowHeight: gridConfig.rowHeight, margin: gridConfig.margin, containerPadding: GRID_PADDING }}
           dragConfig={{ enabled: true, handle: '.drag-handle' }}
           resizeConfig={{ enabled: true }}
           onLayoutChange={(l) => setLayout([...l])}

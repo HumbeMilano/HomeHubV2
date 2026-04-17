@@ -567,6 +567,19 @@ img, svg { display: block; max-width: 100%; }
   .page-area { padding-bottom: calc(var(--dock-height) + 24px); }
 
   .bottom-dock { display: flex; }
+
+  .bottom-dock {
+    max-width: min(90vw, 600px);
+  }
+
+  .modal-sheet {
+    max-width: 560px;
+    border-radius: var(--r-xl);
+  }
+
+  .modal-backdrop {
+    align-items: center;
+  }
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
@@ -601,3 +614,30 @@ img, svg { display: block; max-width: 100%; }
 .text-3 { color: var(--text-3); }
 .font-600 { font-weight: 600; }
 .w-full { width: 100%; }
+
+/* ── Mobile landscape: dock y modal compactos ──────────────────────────── */
+@media (max-width: 768px) and (orientation: landscape) {
+  .page-area {
+    padding-bottom: calc(var(--dock-height) + 12px);
+  }
+}
+
+/* ── Small phones: modal compacto ────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .modal-sheet {
+    padding: var(--sp-4);
+  }
+}
+
+/* ── Desktop: modal centrado, no bottom sheet ────────────────────────────── */
+@media (min-width: 1024px) {
+  .modal-backdrop {
+    align-items: center;
+  }
+
+  .modal-sheet {
+    border-radius: var(--r-lg);
+    max-width: 560px;
+    max-height: 85vh;
+  }
+}

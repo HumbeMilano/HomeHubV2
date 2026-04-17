@@ -166,6 +166,34 @@
   font-size: var(--text-sm);
 }
 
-@media (max-width: 600px) {
-  .kanban { grid-template-columns: 1fr; }
+@media (max-width: 768px) {
+  .root {
+    padding: var(--page-padding);
+  }
+
+  .kanban {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .root {
+    padding: var(--page-padding);
+  }
+
+  .kanban {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1024px) {
+  .root {
+    padding: var(--page-padding);
+  }
+}
+
+@media (min-width: 1400px) {
+  .kanban {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
 }

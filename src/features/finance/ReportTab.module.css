@@ -240,3 +240,15 @@
   color: var(--text-3);
   font-size: var(--text-xs);
 }
+
+@media (min-width: 641px) and (max-width: 900px) {
+  .summaryRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .root {
+    padding-bottom: var(--sp-8);
+  }
+}

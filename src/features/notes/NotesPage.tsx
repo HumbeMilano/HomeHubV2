@@ -264,6 +264,7 @@ function NoteCard({ note, onUpdate, onDeleteRequest, onPinToLock, lockPanelRef }
   }
 
   function onTouchStart(e: React.TouchEvent) {
+    if (window.matchMedia('(max-width: 768px)').matches) return;
     if ((e.target as HTMLElement).tagName === 'TEXTAREA') return;
     e.preventDefault();
     const touch = e.touches[0];
