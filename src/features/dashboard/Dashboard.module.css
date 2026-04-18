@@ -1,3 +1,4 @@
+/* ── Desktop root ────────────────────────────────────────────────────────── */
 .root {
   display: flex;
   flex-direction: column;
@@ -8,7 +9,7 @@
   box-sizing: border-box;
 }
 
-/* ── Header ─────────────────────────────────────────────────────────────── */
+/* ── Desktop header ──────────────────────────────────────────────────────── */
 .header {
   display: flex;
   align-items: center;
@@ -34,7 +35,6 @@
   border-radius: var(--r-full);
   background: transparent;
   transition: background var(--transition), color var(--transition);
-  z-index: var(--z-top);
 }
 
 .editToggle:hover {
@@ -42,44 +42,7 @@
   color: var(--text-2);
 }
 
-/* ── Floating Action Button (FAB) for mobile ────────────────────────────── */
-.fab {
-  position: fixed;
-  bottom: var(--sp-6);
-  right: var(--sp-6);
-  width: 56px;
-  height: 56px;
-  border-radius: var(--r-full);
-  background: var(--accent);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 0;
-  box-shadow: var(--shadow-lg);
-  transition: transform var(--transition), opacity var(--transition);
-  z-index: var(--z-modal); /* High z-index to stay above all content including scroll */
-}
-
-.fab:active {
-  transform: scale(0.93);
-}
-
-@media (max-width: 600px) {
-  .fab {
-    display: flex;
-  }
-}
-
-@media (min-width: 601px) {
-  .fab {
-    display: none;
-  }
-}
-
-/* ── Edit mode actions ───────────────────────────────────────────────────── */
+/* ── Desktop edit mode actions ───────────────────────────────────────────── */
 .actions {
   display: flex;
   align-items: center;
@@ -121,14 +84,14 @@
 .addDropdown li button:hover { background: rgba(120,120,128,0.12); }
 .addDropdown li + li { border-top: 0.5px solid var(--border); }
 
-/* ── Grid wrapper (view + edit) ──────────────────────────────────────────── */
+/* ── Desktop grid wrapper ────────────────────────────────────────────────── */
 .gridWrap {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
 
-/* ── Grid cell (view mode) ───────────────────────────────────────────────── */
+/* ── Desktop grid cell (view mode) ──────────────────────────────────────── */
 .gridCell {
   border-radius: var(--r-widget);
   overflow: hidden;
@@ -160,7 +123,6 @@
 
 .gridCell:hover .openBtn { opacity: 1; }
 
-/* ── Widget inner — on colored cells, override tokens to white ───────────── */
 .widgetInner {
   width: 100%;
   height: 100%;
@@ -168,91 +130,239 @@
   container-name: widget;
 }
 
-/* Override CSS vars so all widget children render white text on color bg */
-.widgetInnerLight {
-  --text:   rgba(255,255,255,1.0);
-  --text-2: rgba(255,255,255,0.75);
-  --text-3: rgba(255,255,255,0.50);
-  --text-4: rgba(255,255,255,0.25);
-  --border: rgba(255,255,255,0.20);
-  --bg-4:   rgba(255,255,255,0.15);
-  --success: rgba(255,255,255,0.90);
-  --danger:  rgba(255,255,255,0.90);
-  --accent:  rgba(255,255,255,1.0);
-  color: rgba(255,255,255,1.0);
-}
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE FEED — diseño nuevo desde cero
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Mobile static feed ─────────────────────────────────────────────────── */
-.mobileGrid {
+/* Root de mobile: scroll completo de la pantalla */
+.mobileRoot {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  min-height: 100%;
+  padding: 72px 16px 24px; /* top: espacio para hamburger + profile */
+  box-sizing: border-box;
+  gap: 0;
+}
+
+/* Saludo */
+.mobileGreeting {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 20px;
+}
+
+.mobileGreetingText {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.mobileDate {
+  font-size: 13px;
+  color: var(--text-2);
+  font-weight: 400;
+  text-transform: capitalize;
+}
+
+/* Feed de cards */
+.mobileFeed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Fila para widgets de media anchura (clock + weather) */
+.mobileRow {
+  display: flex;
+  gap: 12px;
+}
+
+/* Tarjeta base */
+.mobileCard {
+  background: var(--bg-2);
+  border-radius: 18px;
+  overflow: hidden;
+  width: 100%;
+  position: relative;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  container-type: size;
+  container-name: widget;
+  flex-shrink: 0;
+}
+
+/* Media anchura (clock, weather) */
+.mobileCardHalf {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Botón de navegación dentro de la card */
+.mobileCardNav {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(120, 120, 128, 0.25);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  z-index: 2;
+  transition: background var(--transition);
+}
+
+.mobileCardNav:active { background: rgba(120, 120, 128, 0.45); }
+
+/* ─── Bottom Sheet de edición ──────────────────────────────────────────── */
+
+.editSheetBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.50);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: flex-end;
+}
+
+.editSheet {
+  background: var(--bg-2);
+  border-radius: 22px 22px 0 0;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+.editSheetHandle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-4);
+  margin: 12px auto 0;
+  flex-shrink: 0;
+}
+
+.editSheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  flex-shrink: 0;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.editSheetTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.editSheetDone {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
   padding: 0;
 }
 
-.mobileWidget {
-  border-radius: var(--r-widget);
-  overflow: hidden;
-  background: var(--bg-2);
-  box-shadow: var(--shadow-sm);
+.editSheetList {
+  overflow-y: auto;
+  flex: 1;
+  padding: 8px 0;
+}
+
+.editSheetRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
+  padding: 14px 20px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-bottom: 0.5px solid var(--border);
+  transition: background var(--transition);
+}
+
+.editSheetRow:last-child { border-bottom: none; }
+.editSheetRow:active { background: var(--bg-3); }
+
+.editSheetRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* iOS-style toggle switch */
+.toggle {
+  width: 51px;
+  height: 31px;
+  border-radius: 16px;
+  background: var(--bg-4);
   position: relative;
+  transition: background 0.25s ease;
+  flex-shrink: 0;
 }
 
-/* ── Responsive padding ──────────────────────────────────────────────────── */
-@media (max-width: 600px) {
-  .root {
-    padding: var(--page-padding);
-    padding-right: calc(var(--page-padding) + 60px); /* Space for hamburger button */
-    gap: var(--sp-3);
-  }
-
-  .greeting {
-    font-size: var(--text-lg);
-  }
-
-  .header {
-    flex-wrap: wrap;
-    gap: var(--sp-2);
-  }
-
-  .editToggle {
-    display: none;
-  }
-
-  .actions {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: var(--sp-2);
-  }
-
-  .gridWrap {
-    display: none;
-  }
-
-  /* Show grid in edit mode on mobile */
-  .gridWrap.editing {
-    display: flex;
-  }
+.toggleOn {
+  background: var(--success);
 }
 
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toggleOn .toggleThumb {
+  transform: translateX(20px);
+}
+
+.editSheetReset {
+  margin: 12px 20px 20px;
+  padding: 13px;
+  background: var(--bg-3);
+  border: none;
+  border-radius: var(--r-lg);
+  color: var(--danger);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  width: calc(100% - 40px);
+  transition: background var(--transition);
+}
+
+.editSheetReset:active { background: var(--bg-4); }
+
+/* ── Desktop responsive ──────────────────────────────────────────────────── */
 @media (min-width: 769px) and (max-width: 1023px) {
-  .root {
-    padding: var(--page-padding);
-  }
-
-  .greeting {
-    font-size: var(--text-xl);
-  }
+  .root { padding: var(--page-padding); }
+  .greeting { font-size: var(--text-xl); }
 }
 
 @media (min-width: 1024px) {
-  .root {
-    padding: var(--page-padding);
-  }
-
-  .greeting {
-    font-size: var(--text-2xl);
-  }
+  .root { padding: var(--page-padding); }
+  .greeting { font-size: var(--text-2xl); }
 }
-

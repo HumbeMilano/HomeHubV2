@@ -4,7 +4,7 @@ import 'react-grid-layout/css/styles.css';
 import {
   Clock, Bell, ShoppingCart, Calendar, FileText, CloudSun,
   LayoutDashboard, List, PieChart, TrendingUp, Users2,
-  Plus, Check, Pencil, ArrowUpRight,
+  Plus, Check, Pencil, ArrowUpRight, X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -32,17 +32,17 @@ type WidgetType =
 interface WidgetDef { id: string; type: WidgetType; }
 
 const WIDGET_LABELS: Record<WidgetType, string> = {
-  clock:      'Clock',
-  reminders:  'Reminders',
-  shopping:   'Shopping',
-  calendar:   'Calendar',
-  notes:      'Notes',
-  weather:    'Weather',
-  finSummary: 'Finance',
-  finBills:   'Bills',
-  finChart:   'Spending',
-  finIncome:  'Income',
-  finPersons: 'Per Person',
+  clock:      'Reloj',
+  reminders:  'Recordatorios',
+  shopping:   'Compras',
+  calendar:   'Calendario',
+  notes:      'Notas',
+  weather:    'Clima',
+  finSummary: 'Finanzas',
+  finBills:   'Facturas',
+  finChart:   'Gastos',
+  finIncome:  'Ingresos',
+  finPersons: 'Por persona',
 };
 
 const WIDGET_ICONS: Record<WidgetType, LucideIcon> = {
@@ -68,15 +68,34 @@ const WIDGET_TARGET: Partial<Record<WidgetType, AppPage>> = {
   finChart:   'finance',
   finIncome:  'finance',
   finPersons: 'finance',
-  reminders:  'calendar',
+  reminders:  'reminders',
   notes:      'notes',
 };
+
+// Mobile card heights (px) — used for the feed
+const MOBILE_CARD_HEIGHTS: Partial<Record<WidgetType, number>> = {
+  clock:      110,
+  weather:    110,
+  finSummary: 170,
+  finBills:   200,
+  finChart:   260,
+  finIncome:  200,
+  finPersons: 200,
+  calendar:   320,
+  shopping:   260,
+  notes:      200,
+  reminders:  200,
+};
+
+// Widgets that occupy half-width (rendered in pairs)
+const HALF_WIDTH_TYPES = new Set<WidgetType>(['clock', 'weather']);
 
 // ── Default layout (5 core widgets) ───────────────────────────────────────
 const DEFAULT_WIDGETS: WidgetDef[] = [
   { id: 'clock',      type: 'clock'      },
   { id: 'weather',    type: 'weather'    },
   { id: 'finSummary', type: 'finSummary' },
+  { id: 'finBills',   type: 'finBills'   },
   { id: 'calendar',   type: 'calendar'   },
   { id: 'shopping',   type: 'shopping'   },
 ];
@@ -85,23 +104,10 @@ const DEFAULT_LAYOUT: LayoutItem[] = [
   { i: 'clock',      x: 0,  y: 0,  w: 2, h: 2, minW: 2, minH: 1 },
   { i: 'weather',    x: 2,  y: 0,  w: 3, h: 2, minW: 2, minH: 1 },
   { i: 'finSummary', x: 5,  y: 0,  w: 4, h: 2, minW: 2, minH: 2 },
-  { i: 'calendar',   x: 0,  y: 2,  w: 7, h: 5, minW: 4, minH: 4 },
-  { i: 'shopping',   x: 7,  y: 2,  w: 5, h: 5, minW: 2, minH: 2 },
+  { i: 'finBills',   x: 0,  y: 2,  w: 5, h: 4, minW: 2, minH: 3 },
+  { i: 'calendar',   x: 5,  y: 2,  w: 7, h: 5, minW: 4, minH: 4 },
+  { i: 'shopping',   x: 0,  y: 6,  w: 5, h: 5, minW: 2, minH: 2 },
 ];
-
-// ── Alturas fijas de widgets en mobile feed ───────────────────────────────
-const MOBILE_WIDGET_HEIGHTS: Partial<Record<WidgetType, number>> = {
-  clock:      100,
-  weather:    100,
-  finSummary: 160,
-  calendar:   300,
-  shopping:   240,
-  notes:      180,
-  reminders:  180,
-};
-
-// Orden del feed mobile (solo los 5 widgets principales)
-const MOBILE_WIDGET_ORDER: WidgetType[] = ['clock', 'weather', 'finSummary', 'calendar', 'shopping'];
 
 // ── Persistence ────────────────────────────────────────────────────────────
 const LAYOUT_KEY  = 'homehub-dash-layout';
@@ -124,28 +130,28 @@ function loadWidgets(): WidgetDef[] {
 // ── Greeting ───────────────────────────────────────────────────────────────
 function greeting(name: string) {
   const h = new Date().getHours();
-  const time = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const time = h < 12 ? 'Buenos días' : h < 18 ? 'Buenas tardes' : 'Buenas noches';
   return `${time}, ${name}`;
 }
 
-const GRID_PADDING    = [0,  0]  as [number, number];
+const GRID_PADDING = [0, 0] as [number, number];
+const ALL_WIDGET_TYPES = Object.keys(WIDGET_LABELS) as WidgetType[];
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { activeMember } = useAuthStore();
-  const { navigate } = useAppStore();
+  const { navigate, dashboardEditMode, setDashboardEditMode } = useAppStore();
 
-  const [editMode, setEditMode]   = useState(false);
-  const [addOpen,  setAddOpen]    = useState(false);
-  const [widgets,  setWidgets]    = useState<WidgetDef[]>(loadWidgets);
-  const [layout,   setLayout]     = useState<LayoutItem[]>(loadLayout);
+  const [desktopEditMode, setDesktopEditMode] = useState(false);
+  const [addOpen, setAddOpen]   = useState(false);
+  const [widgets, setWidgets]   = useState<WidgetDef[]>(loadWidgets);
+  const [layout,  setLayout]    = useState<LayoutItem[]>(loadLayout);
   const [containerWidth, setContainerWidth] = useState(() =>
     typeof window !== 'undefined'
       ? Math.max(300, window.innerWidth - 64 - 40)
       : 1200
   );
 
-  // ── Detectar viewport mobile (<600px) ─────────────────────────────────────
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 600
   );
@@ -157,7 +163,6 @@ export default function Dashboard() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // ── Grid config dinámico por viewport ─────────────────────────────────────
   const gridConfig = useMemo(() => {
     if (containerWidth < 600) {
       return { cols: 2, rowHeight: 120, margin: [4, 4] as [number, number] };
@@ -184,12 +189,11 @@ export default function Dashboard() {
     return () => { cancelAnimationFrame(rafId); obs.disconnect(); };
   }, []);
 
-  // Persist whenever widgets or layout change
   useEffect(() => { localStorage.setItem(WIDGETS_KEY, JSON.stringify(widgets)); }, [widgets]);
   useEffect(() => { localStorage.setItem(LAYOUT_KEY,  JSON.stringify(layout));  }, [layout]);
 
   const activeTypes    = widgets.map((w) => w.type);
-  const availableTypes = (Object.keys(WIDGET_LABELS) as WidgetType[]).filter((t) => !activeTypes.includes(t));
+  const availableTypes = ALL_WIDGET_TYPES.filter((t) => !activeTypes.includes(t));
 
   function addWidget(type: WidgetType) {
     setWidgets((ws) => [...ws, { id: type, type }]);
@@ -202,6 +206,16 @@ export default function Dashboard() {
     setLayout((ls) => ls.filter((l) => l.i !== id));
   }
 
+  function toggleMobileWidget(type: WidgetType) {
+    if (activeTypes.includes(type)) {
+      setWidgets((ws) => ws.filter((w) => w.type !== type));
+      setLayout((ls) => ls.filter((l) => l.i !== type));
+    } else {
+      setWidgets((ws) => [...ws, { id: type, type }]);
+      setLayout((ls) => [...ls, { i: type, x: 0, y: Infinity, w: 3, h: 3, minW: 2, minH: 1 }]);
+    }
+  }
+
   function resetLayout() {
     setWidgets(DEFAULT_WIDGETS);
     setLayout(DEFAULT_LAYOUT);
@@ -209,60 +223,135 @@ export default function Dashboard() {
     localStorage.setItem(LAYOUT_KEY,  JSON.stringify(DEFAULT_LAYOUT));
   }
 
-  function handleDone() {
-    setEditMode(false);
-    setAddOpen(false);
-  }
-
-  // Sync layout items: remove stale entries, keep positions for current widgets
   const syncedLayout = layout.filter((l) => widgets.some((w) => w.id === l.i));
 
-  // ── View mode (static grid — same layout as edit, no drag/resize) ────────
-  if (!editMode) {
-    // Mobile: feed estático sin GridLayout
-    if (isMobile) {
-      const visibleWidgets = MOBILE_WIDGET_ORDER
-        .map((type) => widgets.find((w) => w.type === type))
-        .filter((w): w is WidgetDef => Boolean(w));
-
-      return (
-        <div className={styles.root}>
-          <div className={styles.header}>
-            <span className={styles.greeting}>
-              {activeMember ? `Hola, ${activeMember.name.split(' ')[0]}` : 'HomeHub'}
-            </span>
-          </div>
-          <div className={styles.mobileGrid}>
-            {visibleWidgets.map(({ id, type }) => {
-              const target = WIDGET_TARGET[type];
-              const height = MOBILE_WIDGET_HEIGHTS[type];
-              return (
-                <div
-                  key={id}
-                  className={styles.mobileWidget}
-                  style={height ? { height } : undefined}
-                >
-                  <div className={styles.widgetInner}>
-                    <WidgetContent type={type} />
-                  </div>
-                  {target && (
-                    <button
-                      className={styles.openBtn}
-                      style={{ opacity: 1 }}
-                      onClick={() => navigate(target)}
-                      title="Abrir"
-                    >
-                      <ArrowUpRight size={14} />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
+  // ── Mobile feed view ──────────────────────────────────────────────────────
+  if (isMobile) {
+    // Group half-width widgets into rows of 2
+    const mobileRows: Array<WidgetDef | [WidgetDef, WidgetDef]> = [];
+    let i = 0;
+    while (i < widgets.length) {
+      const w = widgets[i];
+      if (HALF_WIDTH_TYPES.has(w.type)) {
+        const next = widgets[i + 1];
+        if (next && HALF_WIDTH_TYPES.has(next.type)) {
+          mobileRows.push([w, next]);
+          i += 2;
+        } else {
+          mobileRows.push(w);
+          i += 1;
+        }
+      } else {
+        mobileRows.push(w);
+        i += 1;
+      }
     }
 
+    return (
+      <div className={styles.mobileRoot}>
+        {/* Greeting */}
+        <div className={styles.mobileGreeting}>
+          <span className={styles.mobileGreetingText}>
+            {activeMember ? `Hola, ${activeMember.name.split(' ')[0]} 👋` : 'HomeHub'}
+          </span>
+          <span className={styles.mobileDate}>
+            {new Date().toLocaleDateString('es-MX', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </span>
+        </div>
+
+        {/* Widget feed */}
+        <div className={styles.mobileFeed}>
+          {mobileRows.map((row, idx) => {
+            if (Array.isArray(row)) {
+              // Half-width pair
+              return (
+                <div key={idx} className={styles.mobileRow}>
+                  {row.map(({ id, type }) => (
+                    <div
+                      key={id}
+                      className={`${styles.mobileCard} ${styles.mobileCardHalf}`}
+                      style={{ height: MOBILE_CARD_HEIGHTS[type] }}
+                    >
+                      <WidgetContent type={type} />
+                    </div>
+                  ))}
+                </div>
+              );
+            }
+            // Full-width card
+            const { id, type } = row;
+            const target = WIDGET_TARGET[type];
+            return (
+              <div
+                key={id}
+                className={styles.mobileCard}
+                style={{ height: MOBILE_CARD_HEIGHTS[type] }}
+              >
+                <WidgetContent type={type} />
+                {target && (
+                  <button
+                    className={styles.mobileCardNav}
+                    onClick={() => navigate(target)}
+                    title="Abrir"
+                  >
+                    <ArrowUpRight size={14} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Bottom sheet edit mode (triggered from hamburger) */}
+        {dashboardEditMode && (
+          <div className={styles.editSheetBackdrop} onClick={() => setDashboardEditMode(false)}>
+            <div className={styles.editSheet} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.editSheetHandle} />
+              <div className={styles.editSheetHeader}>
+                <span className={styles.editSheetTitle}>Personalizar</span>
+                <button
+                  className={styles.editSheetDone}
+                  onClick={() => setDashboardEditMode(false)}
+                >
+                  <Check size={16} /> Listo
+                </button>
+              </div>
+              <div className={styles.editSheetList}>
+                {ALL_WIDGET_TYPES.map((type) => {
+                  const Icon = WIDGET_ICONS[type];
+                  const active = activeTypes.includes(type);
+                  return (
+                    <button
+                      key={type}
+                      className={styles.editSheetRow}
+                      onClick={() => toggleMobileWidget(type)}
+                    >
+                      <div className={styles.editSheetRowLeft}>
+                        <Icon size={18} />
+                        <span>{WIDGET_LABELS[type]}</span>
+                      </div>
+                      <div className={`${styles.toggle} ${active ? styles.toggleOn : ''}`}>
+                        <div className={styles.toggleThumb} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                className={styles.editSheetReset}
+                onClick={() => { resetLayout(); }}
+              >
+                Restablecer por defecto
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Desktop view mode ─────────────────────────────────────────────────────
+  if (!desktopEditMode) {
     return (
       <div className={styles.root}>
         <div className={styles.header}>
@@ -271,7 +360,7 @@ export default function Dashboard() {
           </span>
           <button
             className={styles.editToggle}
-            onClick={() => setEditMode(true)}
+            onClick={() => setDesktopEditMode(true)}
             title="Customize dashboard"
           >
             <Pencil size={14} /> Edit
@@ -311,7 +400,7 @@ export default function Dashboard() {
     );
   }
 
-  // ── Edit mode (draggable / resizable grid) ──────────────────────────────
+  // ── Desktop edit mode ─────────────────────────────────────────────────────
   return (
     <div className={styles.root}>
       <div className={styles.header}>
@@ -347,7 +436,7 @@ export default function Dashboard() {
           <button
             className="btn btn--primary btn--sm"
             style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-            onClick={handleDone}
+            onClick={() => { setDesktopEditMode(false); setAddOpen(false); }}
           >
             <Check size={14} /> Done
           </button>

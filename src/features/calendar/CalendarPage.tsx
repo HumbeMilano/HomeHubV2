@@ -103,7 +103,7 @@ function useLongPress(onPress: () => void, ms = 500) {
 // ── Main component ─────────────────────────────────────────────────────────
 export default function CalendarPage() {
   const { items, loading, fetchAll, deleteItem } = useCalendarStore();
-  const { bills, getEffectiveAmount }   = useFinanceStore();
+  const { bills, getEffectiveAmount, fetchAll: fetchFinance } = useFinanceStore();
   const { activeMember } = useAuthStore();
   const { calendarIntent, clearCalendarIntent } = useAppStore();
   const [month,       setMonth]       = useState(new Date());
@@ -123,7 +123,7 @@ export default function CalendarPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchAll(); fetchFinance(); }, [fetchAll, fetchFinance]);
 
   useEffect(() => {
     return subscribeToTable<CalendarItem>({

@@ -14,9 +14,8 @@ const SWIPE_THRESHOLD = 80;
 function BillCard({ bill, onEdit }: { bill: FinBill; onEdit: () => void }) {
   const {
     workMonth, workYear,
-    getBillStatus, setBillStatus, hideFromMonth, getEffectiveAmount, getPersonBillShare, categories,
+    getBillStatus, setBillStatus, hideFromMonth, getEffectiveAmount, categories,
   } = useFinanceStore();
-  const { members } = useMembersStore();
 
   const dragRef = useRef<number | null>(null);
   const [dx, setDx] = useState(0);
@@ -46,14 +45,6 @@ function BillCard({ bill, onEdit }: { bill: FinBill; onEdit: () => void }) {
     else if (dx < -SWIPE_THRESHOLD) await hideFromMonth(bill.id, workYear, workMonth);
     setDx(0);
   }
-
-  const splitRows = bill.splits.length > 0
-    ? bill.splits.map((s) => {
-        const m = members.find((x) => x.id === s.person_id);
-        if (!m) return null;
-        return { member: m, amount: getPersonBillShare(bill, s.person_id, effective) };
-      }).filter(Boolean)
-    : [];
 
   return (
     <div className={styles.card}>
@@ -102,19 +93,6 @@ function BillCard({ bill, onEdit }: { bill: FinBill; onEdit: () => void }) {
             {cat ? `${cat.icon} ${cat.name}` : null}
             {!bill.due_day && !cat ? bill.type : null}
           </div>
-          {splitRows.length > 0 && (
-            <div className={styles.splitRows}>
-              {splitRows.map((sr) => sr && (
-                <div key={sr.member.id} className={styles.splitRow}>
-                  <span className={styles.splitDot} style={{ background: sr.member.color }}>
-                    {sr.member.name.charAt(0)}
-                  </span>
-                  <span className={styles.splitName}>{sr.member.name}</span>
-                  <span className={styles.splitAmt}>{fmt(sr.amount)}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className={styles.cardRight}>

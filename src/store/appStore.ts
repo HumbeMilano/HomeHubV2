@@ -22,8 +22,10 @@ interface AppState {
   householdName: string;
   language: Language;
   photoSlideInterval: number; // ms between slides; options: 10000–120000
+  dashboardEditMode: boolean;
 
   navigate: (page: AppPage) => void;
+  setDashboardEditMode: (v: boolean) => void;
   setTheme: (theme: Theme) => void;
   setSidebarOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
@@ -77,8 +79,10 @@ export const useAppStore = create<AppState>((set) => ({
   householdName: getInitialHouseholdName(),
   language: getInitialLanguage(),
   photoSlideInterval: getInitialSlideInterval(),
+  dashboardEditMode: false,
 
   navigate: (page) => set((s) => ({ currentPage: page, previousPage: s.currentPage, sidebarOpen: false })),
+  setDashboardEditMode: (v) => set({ dashboardEditMode: v }),
   setTheme: (theme) => {
     localStorage.setItem('homehub-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);

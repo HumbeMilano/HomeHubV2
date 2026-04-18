@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Home, CalendarDays, ShoppingCart, Wallet,
-  FileText, CheckSquare, Bell, Settings, Sun, Moon,
+  FileText, CheckSquare, Bell, Settings, Sun, Moon, Lock, LayoutDashboard,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from './store/authStore';
@@ -32,18 +32,17 @@ const NAV_PAGES: { page: AppPage; label: string; icon: LucideIcon }[] = [
 
 export default function App() {
   const { activeMember, verifyMemberExists, lock } = useAuthStore();
-  const { currentPage, navigate, settingsOpen, setSettingsOpen, theme, setTheme } = useAppStore();
+  const { currentPage, navigate, settingsOpen, setSettingsOpen, theme, setTheme, setDashboardEditMode } = useAppStore();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => { verifyMemberExists(); }, [verifyMemberExists]);
 
-  // Auto-lock on inactivity (only when a member is active)
   useIdleTimer();
 
   if (!activeMember) return <LockScreen />;
 
   return (
     <div className="app-shell">
-      {/* Slim icon sidebar — desktop (expands on hover) */}
       <SlimSidebar
         currentPage={currentPage}
         onNavigate={navigate}
@@ -54,7 +53,6 @@ export default function App() {
         onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       />
 
-      {/* Main content */}
       <main className="main-content">
         <div className="page-area">
           <PageTransition page={currentPage}>
@@ -63,13 +61,36 @@ export default function App() {
         </div>
       </main>
 
-      {/* Floating pill dock — mobile */}
       <BottomDock currentPage={currentPage} onNavigate={navigate} />
 
-      {/* Settings / members panel */}
-      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {/* Mobile: hamburger (left) + profile avatar (right) */}
+      <HamburgerMenu
+        open={menuOpen}
+        onToggle={() => setMenuOpen((o) => !o)}
+        currentPage={currentPage}
+        onNavigate={(p) => { navigate(p); setMenuOpen(false); }}
+        onSettings={() => { setSettingsOpen(true); setMenuOpen(false); }}
+        onLock={() => { lock(); setMenuOpen(false); }}
+        onEditDashboard={() => { setDashboardEditMode(true); setMenuOpen(false); }}
+        theme={theme}
+        onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      />
 
-      {/* Toast notifications */}
+      {/* Profile avatar button — mobile top right */}
+      {activeMember && (
+        <button
+          className="mobile-profile-btn"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Perfil"
+        >
+          {activeMember.avatar_url
+            ? <img src={activeMember.avatar_url} alt={activeMember.name} />
+            : <span style={{ backgroundColor: activeMember.color }}>{activeMember.name.charAt(0).toUpperCase()}</span>
+          }
+        </button>
+      )}
+
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       <Toaster />
     </div>
   );
@@ -160,6 +181,72 @@ function BottomDock({ currentPage, onNavigate }: {
         </button>
       ))}
     </nav>
+  );
+}
+
+/* ── Hamburger menu (mobile) ─────────────────────────────────────────────── */
+function HamburgerMenu({
+  open, onToggle, currentPage, onNavigate, onSettings, onLock, onEditDashboard, theme, onThemeToggle,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  currentPage: AppPage;
+  onNavigate: (p: AppPage) => void;
+  onSettings: () => void;
+  onLock: () => void;
+  onEditDashboard: () => void;
+  theme: string;
+  onThemeToggle: () => void;
+}) {
+  return (
+    <>
+      <button className="hamburger-btn" onClick={onToggle} aria-label="Abrir menú">
+        <span className="hamburger-line" />
+        <span className="hamburger-line" />
+        <span className="hamburger-line" />
+      </button>
+
+      {open && (
+        <div className="hamburger-backdrop" onClick={onToggle}>
+          <div className="hamburger-drawer" onClick={(e) => e.stopPropagation()}>
+            {NAV_PAGES.map(({ page, label, icon: Icon }) => (
+              <button
+                key={page}
+                className={`hamburger-nav-item${currentPage === page ? ' active' : ''}`}
+                onClick={() => onNavigate(page)}
+              >
+                <Icon size={20} />
+                {label}
+              </button>
+            ))}
+
+            <div className="hamburger-divider" />
+
+            {currentPage === 'dashboard' && (
+              <button className="hamburger-nav-item" onClick={onEditDashboard}>
+                <LayoutDashboard size={20} />
+                Personalizar
+              </button>
+            )}
+
+            <button className="hamburger-nav-item" onClick={onThemeToggle}>
+              {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+              {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            </button>
+
+            <button className="hamburger-nav-item" onClick={onSettings}>
+              <Settings size={20} />
+              Ajustes
+            </button>
+
+            <button className="hamburger-nav-item" onClick={onLock}>
+              <Lock size={20} />
+              Bloquear
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

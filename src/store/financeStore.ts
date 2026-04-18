@@ -120,7 +120,7 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
             bill.auto_pay &&
             bill.due_day &&
             today.getDate() >= bill.due_day &&
-            !get().getBillStatus(bill.id, workMonth, workYear) &&
+            get().getBillStatus(bill.id, workMonth, workYear) !== 'paid' &&
             !_autoPaidSession.has(sessionKey)
           ) {
             _autoPaidSession.add(sessionKey);

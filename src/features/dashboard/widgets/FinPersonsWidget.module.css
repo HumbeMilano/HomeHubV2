@@ -147,3 +147,15 @@
   .card { min-width: unset; }
 }
 
+/* ── Mobile: stack cards vertically ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .cards {
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .card { min-width: unset; }
+  .stats { gap: var(--sp-1); }
+  .statLabel { font-size: 9px; }
+}
+

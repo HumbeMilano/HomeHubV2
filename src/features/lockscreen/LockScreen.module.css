@@ -317,11 +317,38 @@
   .layout { flex-direction: column; }
   .leftCol { flex: none; padding: 28px 24px 0; }
   .time { font-size: 72px; }
-  .notesPanel { display: none; }  /* hide notes panel on small screens */
+
+  /* Notes visible below events as horizontal scroll row */
+  .notesPanel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0 24px 28px;
+    gap: 8px;
+  }
+
+  .notesList {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: unset;
+    gap: 10px;
+    scrollbar-width: none;
+  }
+  .notesList::-webkit-scrollbar { display: none; }
+
+  .noteCard {
+    min-width: 160px;
+    max-width: 200px;
+    flex-shrink: 0;
+  }
+
   .numkey { width: 56px; height: 56px; font-size: 22px; }
   .eventsPanel { max-width: 100%; }
   .pinBox { padding: 28px 24px 24px; }
-  .pinOverlay { align-items: flex-end; padding-bottom: 40px; }
+
+  /* Pin pad centered (not bottom-anchored) */
+  .pinOverlay { align-items: center; padding-bottom: 0; }
 }
 
 /* ── Tablet landscape: bigger everything ─────────────────────────────────── */
