@@ -63,32 +63,32 @@ export default function App() {
 
       <BottomDock currentPage={currentPage} onNavigate={navigate} />
 
-      {/* Mobile: hamburger (left) + profile avatar (right) */}
-      <HamburgerMenu
-        open={menuOpen}
-        onToggle={() => setMenuOpen((o) => !o)}
-        currentPage={currentPage}
-        onNavigate={(p) => { navigate(p); setMenuOpen(false); }}
-        onSettings={() => { setSettingsOpen(true); setMenuOpen(false); }}
-        onLock={() => { lock(); setMenuOpen(false); }}
-        onEditDashboard={() => { setDashboardEditMode(true); setMenuOpen(false); }}
-        theme={theme}
-        onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      />
-
-      {/* Profile avatar button — mobile top right */}
-      {activeMember && (
-        <button
-          className="mobile-profile-btn"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Perfil"
-        >
-          {activeMember.avatar_url
-            ? <img src={activeMember.avatar_url} alt={activeMember.name} />
-            : <span style={{ backgroundColor: activeMember.color }}>{activeMember.name.charAt(0).toUpperCase()}</span>
-          }
-        </button>
-      )}
+      {/* Mobile fixed header bar — hamburger left, profile right */}
+      <div className="mobile-header">
+        <HamburgerMenu
+          open={menuOpen}
+          onToggle={() => setMenuOpen((o) => !o)}
+          currentPage={currentPage}
+          onNavigate={(p) => { navigate(p); setMenuOpen(false); }}
+          onSettings={() => { setSettingsOpen(true); setMenuOpen(false); }}
+          onLock={() => { lock(); setMenuOpen(false); }}
+          onEditDashboard={() => { setDashboardEditMode(true); setMenuOpen(false); }}
+          theme={theme}
+          onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        />
+        {activeMember && (
+          <button
+            className="mobile-profile-btn"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Perfil"
+          >
+            {activeMember.avatar_url
+              ? <img src={activeMember.avatar_url} alt={activeMember.name} />
+              : <span style={{ backgroundColor: activeMember.color }}>{activeMember.name.charAt(0).toUpperCase()}</span>
+            }
+          </button>
+        )}
+      </div>
 
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       <Toaster />

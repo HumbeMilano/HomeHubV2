@@ -262,6 +262,26 @@
   pointer-events: none;
 }
 
+/* ── Desktop notes wrapper (right column) ─────────────────────────────────── */
+.notesDesktop {
+  display: flex; /* visible on desktop */
+  flex-shrink: 0;
+}
+
+/* ── Mobile bottom notes bar ──────────────────────────────────────────────── */
+.notesBottom {
+  display: none; /* hidden on desktop, shown in mobile media query */
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: 0 20px 24px;
+  pointer-events: none; /* prevent blocking tap-to-unlock */
+}
+
+.notesBottom > * { pointer-events: auto; }
+
 /* ── Notes panel (right side) ─────────────────────────────────────────────── */
 .notesPanel {
   width: clamp(200px, 22vw, 280px);
@@ -318,28 +338,35 @@
   .leftCol { flex: none; padding: 28px 24px 0; }
   .time { font-size: 72px; }
 
-  /* Notes visible below events as horizontal scroll row */
-  .notesPanel {
-    display: flex;
-    flex-direction: column;
+  /* Desktop notes panel hidden on mobile */
+  .notesDesktop { display: none; }
+
+  /* Mobile notes shown at the bottom */
+  .notesBottom { display: block; }
+
+  /* Notes in bottom bar: horizontal scroll row */
+  .notesBottom .notesPanel {
     width: 100%;
-    padding: 0 24px 28px;
+    padding: 0;
     gap: 8px;
   }
 
-  .notesList {
+  .notesBottom .notesPanelHeader { display: none; }
+
+  .notesBottom .notesList {
     flex-direction: row;
     overflow-x: auto;
     overflow-y: hidden;
     max-height: unset;
     gap: 10px;
     scrollbar-width: none;
+    padding-bottom: 4px;
   }
-  .notesList::-webkit-scrollbar { display: none; }
+  .notesBottom .notesList::-webkit-scrollbar { display: none; }
 
-  .noteCard {
-    min-width: 160px;
-    max-width: 200px;
+  .notesBottom .noteCard {
+    min-width: 150px;
+    max-width: 190px;
     flex-shrink: 0;
   }
 
@@ -347,7 +374,6 @@
   .eventsPanel { max-width: 100%; }
   .pinBox { padding: 28px 24px 24px; }
 
-  /* Pin pad centered (not bottom-anchored) */
   .pinOverlay { align-items: center; padding-bottom: 0; }
 }
 

@@ -103,7 +103,14 @@ export default function LockScreen() {
           <UpcomingEvents />
         </div>
 
-        {/* ── Right: sticky notes panel ───────────────────────── */}
+        {/* ── Right: sticky notes panel (desktop only) ─────── */}
+        <div className={styles.notesDesktop}>
+          <LockNotes />
+        </div>
+      </div>
+
+      {/* ── Bottom notes bar (mobile only) ───────────────────── */}
+      <div className={styles.notesBottom}>
         <LockNotes />
       </div>
 

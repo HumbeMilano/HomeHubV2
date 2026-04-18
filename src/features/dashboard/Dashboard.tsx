@@ -4,7 +4,7 @@ import 'react-grid-layout/css/styles.css';
 import {
   Clock, Bell, ShoppingCart, Calendar, FileText, CloudSun,
   LayoutDashboard, List, PieChart, TrendingUp, Users2,
-  Plus, Check, Pencil, ArrowUpRight, X,
+  Plus, Check, Pencil, ArrowUpRight, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -216,6 +216,18 @@ export default function Dashboard() {
     }
   }
 
+  function moveWidget(type: WidgetType, dir: 'up' | 'down') {
+    setWidgets((ws) => {
+      const idx = ws.findIndex((w) => w.type === type);
+      if (idx === -1) return ws;
+      const next = dir === 'up' ? idx - 1 : idx + 1;
+      if (next < 0 || next >= ws.length) return ws;
+      const arr = [...ws];
+      [arr[idx], arr[next]] = [arr[next], arr[idx]];
+      return arr;
+    });
+  }
+
   function resetLayout() {
     setWidgets(DEFAULT_WIDGETS);
     setLayout(DEFAULT_LAYOUT);
@@ -317,23 +329,46 @@ export default function Dashboard() {
                 </button>
               </div>
               <div className={styles.editSheetList}>
-                {ALL_WIDGET_TYPES.map((type) => {
+                {ALL_WIDGET_TYPES.map((type, _i) => {
                   const Icon = WIDGET_ICONS[type];
                   const active = activeTypes.includes(type);
+                  const activeIdx = widgets.findIndex((w) => w.type === type);
+                  const isFirst = activeIdx === 0;
+                  const isLast  = activeIdx === widgets.length - 1;
                   return (
-                    <button
-                      key={type}
-                      className={styles.editSheetRow}
-                      onClick={() => toggleMobileWidget(type)}
-                    >
-                      <div className={styles.editSheetRowLeft}>
-                        <Icon size={18} />
-                        <span>{WIDGET_LABELS[type]}</span>
+                    <div key={type} className={styles.editSheetRow}>
+                      {/* Reorder arrows — only shown when widget is active */}
+                      <div className={styles.editSheetArrows}>
+                        <button
+                          className={styles.arrowBtn}
+                          onClick={() => moveWidget(type, 'up')}
+                          disabled={!active || isFirst}
+                          aria-label="Mover arriba"
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        <button
+                          className={styles.arrowBtn}
+                          onClick={() => moveWidget(type, 'down')}
+                          disabled={!active || isLast}
+                          aria-label="Mover abajo"
+                        >
+                          <ChevronDown size={14} />
+                        </button>
                       </div>
-                      <div className={`${styles.toggle} ${active ? styles.toggleOn : ''}`}>
-                        <div className={styles.toggleThumb} />
-                      </div>
-                    </button>
+                      <button
+                        className={styles.editSheetRowContent}
+                        onClick={() => toggleMobileWidget(type)}
+                      >
+                        <div className={styles.editSheetRowLeft}>
+                          <Icon size={18} />
+                          <span>{WIDGET_LABELS[type]}</span>
+                        </div>
+                        <div className={`${styles.toggle} ${active ? styles.toggleOn : ''}`}>
+                          <div className={styles.toggleThumb} />
+                        </div>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
