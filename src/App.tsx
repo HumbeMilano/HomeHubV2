@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Home, CalendarDays, ShoppingCart, Wallet,
-  FileText, CheckSquare, Bell, Settings, Sun, Moon, Lock, LayoutDashboard,
+  FileText, CheckSquare, Bell, Settings, Sun, Moon, Lock, Pencil,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from './store/authStore';
@@ -223,8 +223,8 @@ function HamburgerMenu({
             <div className="hamburger-divider" />
 
             {currentPage === 'dashboard' && (
-              <button className="hamburger-nav-item" onClick={onEditDashboard}>
-                <LayoutDashboard size={20} />
+              <button className="hamburger-nav-item hamburger-nav-item--primary" onClick={onEditDashboard}>
+                <Pencil size={20} />
                 Personalizar
               </button>
             )}

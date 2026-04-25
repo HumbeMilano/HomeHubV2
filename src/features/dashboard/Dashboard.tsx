@@ -4,11 +4,14 @@ import 'react-grid-layout/css/styles.css';
 import {
   Clock, Bell, ShoppingCart, Calendar, FileText, CloudSun,
   LayoutDashboard, List, PieChart, TrendingUp, Users2,
-  Plus, Check, Pencil, ArrowUpRight, ChevronUp, ChevronDown,
+  Plus, Check, Pencil, ArrowUpRight, ChevronUp, ChevronDown, GripVertical,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { addDays, startOfDay, isAfter, isBefore, isToday, parseISO } from 'date-fns';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
+import { useCalendarStore } from '../../store/calendarStore';
+import { useShoppingStore } from '../../store/shoppingStore';
 import type { AppPage } from '../../types';
 import WidgetWrapper from './widgets/WidgetWrapper';
 import ClockWidget from './widgets/ClockWidget';
@@ -80,15 +83,15 @@ const MOBILE_CARD_HEIGHTS: Partial<Record<WidgetType, number>> = {
   finBills:   200,
   finChart:   260,
   finIncome:  200,
-  finPersons: 200,
+  finPersons: 380,
   calendar:   320,
   shopping:   260,
   notes:      200,
   reminders:  200,
 };
 
-// Widgets that occupy half-width (rendered in pairs)
-const HALF_WIDTH_TYPES = new Set<WidgetType>(['clock', 'weather']);
+// Persistence key for user-configured half-width pairs
+const MOBILE_PAIRS_KEY = 'homehub-dash-mobile-pairs';
 
 // ── Default layout (5 core widgets) ───────────────────────────────────────
 const DEFAULT_WIDGETS: WidgetDef[] = [
@@ -146,6 +149,12 @@ export default function Dashboard() {
   const [addOpen, setAddOpen]   = useState(false);
   const [widgets, setWidgets]   = useState<WidgetDef[]>(loadWidgets);
   const [layout,  setLayout]    = useState<LayoutItem[]>(loadLayout);
+  const [mobileHalfWidgets, setMobileHalfWidgets] = useState<WidgetType[]>(() => {
+    try { return JSON.parse(localStorage.getItem(MOBILE_PAIRS_KEY) ?? '["clock","weather"]') as WidgetType[]; }
+    catch { return ['clock', 'weather']; }
+  });
+  const [draggingType,   setDraggingType]   = useState<WidgetType | null>(null);
+  const [dropTargetType, setDropTargetType] = useState<WidgetType | null>(null);
   const [containerWidth, setContainerWidth] = useState(() =>
     typeof window !== 'undefined'
       ? Math.max(300, window.innerWidth - 64 - 40)
@@ -189,8 +198,31 @@ export default function Dashboard() {
     return () => { cancelAnimationFrame(rafId); obs.disconnect(); };
   }, []);
 
-  useEffect(() => { localStorage.setItem(WIDGETS_KEY, JSON.stringify(widgets)); }, [widgets]);
-  useEffect(() => { localStorage.setItem(LAYOUT_KEY,  JSON.stringify(layout));  }, [layout]);
+  useEffect(() => { localStorage.setItem(WIDGETS_KEY,    JSON.stringify(widgets));          }, [widgets]);
+  useEffect(() => { localStorage.setItem(LAYOUT_KEY,     JSON.stringify(layout));            }, [layout]);
+  useEffect(() => { localStorage.setItem(MOBILE_PAIRS_KEY, JSON.stringify(mobileHalfWidgets)); }, [mobileHalfWidgets]);
+
+  // ── Dynamic mobile heights ─────────────────────────────────────────────
+  const calItems     = useCalendarStore((s) => s.items);
+  const shoppingLists = useShoppingStore((s) => s.lists);
+  const shoppingItems = useShoppingStore((s) => s.items);
+
+  const remindersHeight = useMemo(() => {
+    const now   = startOfDay(new Date());
+    const limit = addDays(now, 7);
+    const count = calItems.filter((item) => {
+      const d = parseISO(item.start_at);
+      return (isToday(d) || isAfter(d, now)) && isBefore(d, limit);
+    }).length;
+    const visible = Math.min(count, 7);
+    return Math.max(120, 64 + visible * 50 + 32); // header + rows + padding
+  }, [calItems]);
+
+  const shoppingHeight = useMemo(() => {
+    const featured = shoppingLists.find((l) => l.is_featured);
+    const count    = featured ? shoppingItems.filter((i) => i.list_id === featured.id).length : 0;
+    return Math.min(780, Math.max(260, 64 + count * 36 + 52)); // header + items + input
+  }, [shoppingLists, shoppingItems]);
 
   const activeTypes    = widgets.map((w) => w.type);
   const availableTypes = ALL_WIDGET_TYPES.filter((t) => !activeTypes.includes(t));
@@ -231,22 +263,44 @@ export default function Dashboard() {
   function resetLayout() {
     setWidgets(DEFAULT_WIDGETS);
     setLayout(DEFAULT_LAYOUT);
-    localStorage.setItem(WIDGETS_KEY, JSON.stringify(DEFAULT_WIDGETS));
-    localStorage.setItem(LAYOUT_KEY,  JSON.stringify(DEFAULT_LAYOUT));
+    setMobileHalfWidgets(['clock', 'weather']);
+    localStorage.setItem(WIDGETS_KEY,     JSON.stringify(DEFAULT_WIDGETS));
+    localStorage.setItem(LAYOUT_KEY,      JSON.stringify(DEFAULT_LAYOUT));
+    localStorage.setItem(MOBILE_PAIRS_KEY, JSON.stringify(['clock', 'weather']));
+  }
+
+  function togglePair(a: WidgetType, b: WidgetType) {
+    setMobileHalfWidgets((prev) => {
+      const alreadyPaired = prev.includes(a) && prev.includes(b);
+      if (alreadyPaired) return prev.filter((t) => t !== a && t !== b);
+      return [...new Set([...prev, a, b])];
+    });
+    // Ensure a and b are adjacent in the widgets list
+    setWidgets((ws) => {
+      const idxA = ws.findIndex((w) => w.type === a);
+      const idxB = ws.findIndex((w) => w.type === b);
+      if (idxA === -1 || idxB === -1) return ws;
+      if (Math.abs(idxA - idxB) === 1) return ws;
+      const arr = ws.filter((w) => w.type !== b);
+      const newIdxA = arr.findIndex((w) => w.type === a);
+      arr.splice(newIdxA + 1, 0, ws[idxB]);
+      return arr;
+    });
   }
 
   const syncedLayout = layout.filter((l) => widgets.some((w) => w.id === l.i));
 
   // ── Mobile feed view ──────────────────────────────────────────────────────
   if (isMobile) {
-    // Group half-width widgets into rows of 2
+    // Group half-width widgets into rows of 2 (user-configurable pairs)
+    const halfSet = new Set(mobileHalfWidgets);
     const mobileRows: Array<WidgetDef | [WidgetDef, WidgetDef]> = [];
     let i = 0;
     while (i < widgets.length) {
       const w = widgets[i];
-      if (HALF_WIDTH_TYPES.has(w.type)) {
+      if (halfSet.has(w.type)) {
         const next = widgets[i + 1];
-        if (next && HALF_WIDTH_TYPES.has(next.type)) {
+        if (next && halfSet.has(next.type)) {
           mobileRows.push([w, next]);
           i += 2;
         } else {
@@ -257,6 +311,13 @@ export default function Dashboard() {
         mobileRows.push(w);
         i += 1;
       }
+    }
+
+    // Resolve dynamic heights for widgets that size themselves by content
+    function mobileHeight(type: WidgetType): number {
+      if (type === 'reminders') return remindersHeight;
+      if (type === 'shopping')  return shoppingHeight;
+      return MOBILE_CARD_HEIGHTS[type] ?? 200;
     }
 
     return (
@@ -282,7 +343,7 @@ export default function Dashboard() {
                     <div
                       key={id}
                       className={`${styles.mobileCard} ${styles.mobileCardHalf}`}
-                      style={{ height: MOBILE_CARD_HEIGHTS[type] }}
+                      style={{ height: mobileHeight(type) }}
                     >
                       <WidgetContent type={type} />
                     </div>
@@ -297,7 +358,7 @@ export default function Dashboard() {
               <div
                 key={id}
                 className={styles.mobileCard}
-                style={{ height: MOBILE_CARD_HEIGHTS[type] }}
+                style={{ height: mobileHeight(type) }}
               >
                 <WidgetContent type={type} />
                 {target && (
@@ -328,17 +389,42 @@ export default function Dashboard() {
                   <Check size={16} /> Listo
                 </button>
               </div>
+              <p className={styles.editSheetHint}>
+                Arrastra <GripVertical size={12} /> sobre otro widget activo para ponerlos lado a lado (½). Tócalo de nuevo para separar.
+              </p>
               <div className={styles.editSheetList}>
-                {ALL_WIDGET_TYPES.map((type, _i) => {
+                {ALL_WIDGET_TYPES.map((type) => {
                   const Icon = WIDGET_ICONS[type];
-                  const active = activeTypes.includes(type);
+                  const active    = activeTypes.includes(type);
                   const activeIdx = widgets.findIndex((w) => w.type === type);
-                  const isFirst = activeIdx === 0;
-                  const isLast  = activeIdx === widgets.length - 1;
+                  const isFirst   = activeIdx === 0;
+                  const isLast    = activeIdx === widgets.length - 1;
+                  const isHalf    = mobileHalfWidgets.includes(type);
+                  const isDragTarget = dropTargetType === type && draggingType !== type;
                   return (
-                    <div key={type} className={styles.editSheetRow}>
-                      {/* Reorder arrows — only shown when widget is active */}
+                    <div
+                      key={type}
+                      className={[
+                        styles.editSheetRow,
+                        isDragTarget ? styles.editSheetRowDropTarget : '',
+                      ].join(' ')}
+                      draggable={active}
+                      onDragStart={() => { setDraggingType(type); setDropTargetType(null); }}
+                      onDragOver={(e) => { if (active && draggingType && draggingType !== type) { e.preventDefault(); setDropTargetType(type); } }}
+                      onDragLeave={() => setDropTargetType(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggingType && draggingType !== type && active && activeTypes.includes(draggingType)) {
+                          togglePair(draggingType, type);
+                        }
+                        setDraggingType(null);
+                        setDropTargetType(null);
+                      }}
+                      onDragEnd={() => { setDraggingType(null); setDropTargetType(null); }}
+                    >
+                      {/* Drag handle + reorder arrows */}
                       <div className={styles.editSheetArrows}>
+                        <GripVertical size={14} className={styles.dragHandle} style={{ opacity: active ? 0.5 : 0.2, cursor: active ? 'grab' : 'default' }} />
                         <button
                           className={styles.arrowBtn}
                           onClick={() => moveWidget(type, 'up')}
@@ -363,6 +449,9 @@ export default function Dashboard() {
                         <div className={styles.editSheetRowLeft}>
                           <Icon size={18} />
                           <span>{WIDGET_LABELS[type]}</span>
+                          {isHalf && active && (
+                            <span className={styles.halfChip}>½</span>
+                          )}
                         </div>
                         <div className={`${styles.toggle} ${active ? styles.toggleOn : ''}`}>
                           <div className={styles.toggleThumb} />
