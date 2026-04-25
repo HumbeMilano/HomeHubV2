@@ -33,8 +33,9 @@ interface FinanceState {
   updateBill:            (id: string, patch: Partial<FinBill>) => Promise<void>;
   deleteBill:            (id: string) => Promise<void>;
   setBillStatus:         (billId: string, status: BillStatus) => Promise<void>;
-  hideFromMonth:         (billId: string, year: number, month: number) => Promise<void>;
-  setBillOverrideAmount: (billId: string, year: number, month: number, amount: number) => Promise<void>;
+  hideFromMonth:          (billId: string, year: number, month: number) => Promise<void>;
+  setBillOverrideAmount:  (billId: string, year: number, month: number, amount: number) => Promise<void>;
+  clearBillMonthAmount:   (billId: string, year: number, month: number) => Promise<void>;
 
   // Income
   addIncome:    (data: Omit<FinIncome, 'id' | 'created_at'>) => Promise<void>;
@@ -227,6 +228,19 @@ export const useFinanceStore = create<FinanceState>((set, get) => ({
       await supabase.from('fin_overrides').insert(row);
     }
     bc.post('SET_BILL_AMOUNT', { billId, monthKey: mk, amount });
+  },
+
+  clearBillMonthAmount: async (billId, year, month) => {
+    const mk = monthKey(year, month);
+    const existing = get().overrides.find((o) => o.bill_id === billId && o.month_key === mk);
+    if (!existing || existing.amount === null) return;
+    set((s) => ({
+      overrides: s.overrides.map((o) =>
+        o.id === existing.id ? { ...o, amount: null } : o
+      ),
+    }));
+    await supabase.from('fin_overrides').update({ amount: null }).eq('id', existing.id);
+    bc.post('CLEAR_BILL_AMOUNT', { billId, monthKey: mk });
   },
 
   // ── Income ────────────────────────────────────────────────────────────────

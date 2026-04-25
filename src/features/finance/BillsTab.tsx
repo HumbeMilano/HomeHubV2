@@ -121,7 +121,7 @@ function BillCard({ bill, onEdit }: { bill: FinBill; onEdit: () => void }) {
 
 // ── Main tab ─────────────────────────────────────────────────────────────────
 export default function BillsTab() {
-  const { workMonth, workYear, getBillsForMonth, addBill, updateBill, deleteBill, setBillOverrideAmount } = useFinanceStore();
+  const { workMonth, workYear, getBillsForMonth, addBill, updateBill, deleteBill, setBillOverrideAmount, clearBillMonthAmount } = useFinanceStore();
   const [modal, setModal] = useState<FinBill | 'new' | null>(null);
   const [confirmBill, setConfirmBill] = useState<FinBill | null>(null);
 
@@ -183,6 +183,7 @@ export default function BillsTab() {
                     const { base_amount: _ba, ...rest } = data;
                     await updateBill(modal.id, rest);
                   } else {
+                    await clearBillMonthAmount(modal.id, workYear, workMonth);
                     await updateBill(modal.id, data);
                   }
                 }
@@ -219,7 +220,7 @@ function BillForm({
   const [billType,    setBillType]    = useState<BillType>(existing?.type ?? 'fixed');
   const [name,        setName]        = useState(existing?.name ?? '');
   const [amount,      setAmount]      = useState(initAmt);
-  const [amountMode,  setAmountMode]  = useState<AmountMode>('base');
+  const [amountMode,  setAmountMode]  = useState<AmountMode>('month');
   const [dueDay,      setDueDay]      = useState(String(existing?.due_day ?? ''));
   const [catId,       setCatId]       = useState(existing?.category_id ?? '');
   const [subcatId,    setSubcatId]    = useState(existing?.subcategory_id ?? '');
