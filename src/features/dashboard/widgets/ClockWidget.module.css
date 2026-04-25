@@ -14,7 +14,7 @@
   color: var(--text);
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -3px;
+  letter-spacing: 1px;
   display: inline-flex;
   align-items: flex-end;
   gap: 4px;
@@ -38,12 +38,12 @@
 
 /* Compact: narrow or short */
 @container widget (max-height: 100px) {
-  .time { font-size: var(--text-xl); letter-spacing: -1px; }
+  .time { font-size: var(--text-xl); letter-spacing: 0px; }
   .date { display: none; }
 }
 
 @container widget (max-width: 180px) {
-  .time { font-size: var(--text-xl); letter-spacing: -1px; }
+  .time { font-size: var(--text-xl); letter-spacing: 0px; }
   .date { font-size: 11px; }
 }
 
