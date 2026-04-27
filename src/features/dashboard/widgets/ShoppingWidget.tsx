@@ -42,7 +42,10 @@ export default function ShoppingWidget() {
               onClick={() => toggleItem(item.id, memberId)}
               aria-label="Mark done"
             />
-            <span className={styles.itemName} onClick={() => toggleItem(item.id, memberId)}>
+            <span
+              className={styles.itemName}
+              onClick={(e) => { e.stopPropagation(); toggleItem(item.id, memberId); }}
+            >
               {item.name}
             </span>
             {item.quantity && <span className={styles.qty}>{item.quantity}</span>}
@@ -61,7 +64,10 @@ export default function ShoppingWidget() {
               onClick={() => toggleItem(item.id, memberId)}
               aria-label="Unmark"
             >✓</button>
-            <span className={styles.itemName} onClick={() => toggleItem(item.id, memberId)}>
+            <span
+              className={styles.itemName}
+              onClick={(e) => { e.stopPropagation(); toggleItem(item.id, memberId); }}
+            >
               {item.name}
             </span>
             {item.quantity && <span className={styles.qty}>{item.quantity}</span>}

@@ -4,7 +4,7 @@ import 'react-grid-layout/css/styles.css';
 import {
   Clock, Bell, ShoppingCart, Calendar, FileText, CloudSun,
   LayoutDashboard, List, PieChart, TrendingUp, Users2,
-  Plus, Check, Pencil, ArrowUpRight, ChevronUp, ChevronDown, GripVertical,
+  Plus, Check, ChevronRight, ChevronUp, ChevronDown, GripVertical,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { addDays, startOfDay, isAfter, isBefore, isToday, parseISO } from 'date-fns';
@@ -145,7 +145,6 @@ export default function Dashboard() {
   const { activeMember } = useAuthStore();
   const { navigate, dashboardEditMode, setDashboardEditMode } = useAppStore();
 
-  const [desktopEditMode, setDesktopEditMode] = useState(false);
   const [addOpen, setAddOpen]   = useState(false);
   const [widgets, setWidgets]   = useState<WidgetDef[]>(loadWidgets);
   const [layout,  setLayout]    = useState<LayoutItem[]>(loadLayout);
@@ -202,6 +201,9 @@ export default function Dashboard() {
   useEffect(() => { localStorage.setItem(LAYOUT_KEY,     JSON.stringify(layout));            }, [layout]);
   useEffect(() => { localStorage.setItem(MOBILE_PAIRS_KEY, JSON.stringify(mobileHalfWidgets)); }, [mobileHalfWidgets]);
 
+  // Reset edit mode when leaving dashboard so it doesn't auto-resume on return.
+  useEffect(() => () => setDashboardEditMode(false), [setDashboardEditMode]);
+
   // ── Dynamic mobile heights ─────────────────────────────────────────────
   const calItems     = useCalendarStore((s) => s.items);
   const shoppingLists = useShoppingStore((s) => s.lists);
@@ -249,6 +251,23 @@ export default function Dashboard() {
       setWidgets((ws) => [...ws, { id: type, type }]);
       setLayout((ls) => [...ls, { i: type, x: 0, y: Infinity, w: 3, h: 3, minW: 2, minH: 1 }]);
     }
+  }
+
+  // Whole-card tap → widget's full page. Skip if click landed on an interactive
+  // descendant (button, input, role="button" span/li/div) so toggles, deletes,
+  // day cells, etc. keep working without manual stopPropagation everywhere.
+  const INTERACTIVE_INSIDE_CARD = 'button, a, input, textarea, select, [role="button"]';
+  function handleCardClick(e: React.MouseEvent, target: AppPage) {
+    if (dashboardEditMode) return;
+    if ((e.target as HTMLElement).closest(INTERACTIVE_INSIDE_CARD)) return;
+    navigate(target);
+  }
+  function handleCardKeyDown(e: React.KeyboardEvent, target: AppPage) {
+    if (dashboardEditMode) return;
+    if (e.target !== e.currentTarget) return;
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    navigate(target);
   }
 
   function moveWidget(type: WidgetType, dir: 'up' | 'down') {
@@ -342,15 +361,28 @@ export default function Dashboard() {
               // Half-width pair
               return (
                 <div key={idx} className={styles.mobileRow}>
-                  {row.map(({ id, type }) => (
-                    <div
-                      key={id}
-                      className={`${styles.mobileCard} ${styles.mobileCardHalf}`}
-                      style={{ height: mobileHeight(type) }}
-                    >
-                      <WidgetContent type={type} />
-                    </div>
-                  ))}
+                  {row.map(({ id, type }) => {
+                    const halfTarget = WIDGET_TARGET[type];
+                    return (
+                      <div
+                        key={id}
+                        className={`${styles.mobileCard} ${styles.mobileCardHalf} ${halfTarget ? styles.mobileCardTappable : ''}`}
+                        style={{ height: mobileHeight(type) }}
+                        {...(halfTarget ? {
+                          role: 'button',
+                          tabIndex: 0,
+                          'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
+                          onClick: (e: React.MouseEvent) => handleCardClick(e, halfTarget),
+                          onKeyDown: (e: React.KeyboardEvent) => handleCardKeyDown(e, halfTarget),
+                        } : {})}
+                      >
+                        <WidgetContent type={type} />
+                        {halfTarget && (
+                          <ChevronRight size={14} aria-hidden="true" className={styles.cardCaret} />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             }
@@ -360,18 +392,19 @@ export default function Dashboard() {
             return (
               <div
                 key={id}
-                className={styles.mobileCard}
+                className={`${styles.mobileCard} ${target ? styles.mobileCardTappable : ''}`}
                 style={{ height: mobileHeight(type) }}
+                {...(target ? {
+                  role: 'button',
+                  tabIndex: 0,
+                  'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
+                  onClick: (e: React.MouseEvent) => handleCardClick(e, target),
+                  onKeyDown: (e: React.KeyboardEvent) => handleCardKeyDown(e, target),
+                } : {})}
               >
                 <WidgetContent type={type} />
                 {target && (
-                  <button
-                    className={styles.mobileCardNav}
-                    onClick={() => navigate(target)}
-                    title="Abrir"
-                  >
-                    <ArrowUpRight size={14} />
-                  </button>
+                  <ChevronRight size={14} aria-hidden="true" className={styles.cardCaret} />
                 )}
               </div>
             );
@@ -483,20 +516,13 @@ export default function Dashboard() {
   }
 
   // ── Desktop view mode ─────────────────────────────────────────────────────
-  if (!desktopEditMode) {
+  if (!dashboardEditMode) {
     return (
       <div className={styles.root}>
         <div className={styles.header}>
           <span className={styles.greeting}>
             {activeMember ? greeting(activeMember.name) : 'HomeHub'}
           </span>
-          <button
-            className={styles.editToggle}
-            onClick={() => setDesktopEditMode(true)}
-            title="Customize dashboard"
-          >
-            <Pencil size={14} /> Edit
-          </button>
         </div>
 
         <div className={styles.gridWrap}>
@@ -510,18 +536,26 @@ export default function Dashboard() {
             {widgets.map(({ id, type }) => {
               const target = WIDGET_TARGET[type];
               return (
-                <div key={id} className={styles.gridCell}>
+                <div
+                  key={id}
+                  className={`${styles.gridCell} ${target ? styles.gridCellTappable : ''}`}
+                  {...(target ? {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
+                    onClick: (e) => handleCardClick(e, target),
+                    onKeyDown: (e) => handleCardKeyDown(e, target),
+                  } : {})}
+                >
                   <div className={styles.widgetInner}>
                     <WidgetContent type={type} />
                   </div>
                   {target && (
-                    <button
-                      className={styles.openBtn}
-                      onClick={() => navigate(target)}
-                      title="Open"
-                    >
-                      <ArrowUpRight size={14} />
-                    </button>
+                    <ChevronRight
+                      size={14}
+                      aria-hidden="true"
+                      className={styles.cardCaret}
+                    />
                   )}
                 </div>
               );
@@ -568,7 +602,7 @@ export default function Dashboard() {
           <button
             className="btn btn--primary btn--sm"
             style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-            onClick={() => { setDesktopEditMode(false); setAddOpen(false); }}
+            onClick={() => { setDashboardEditMode(false); setAddOpen(false); }}
           >
             <Check size={14} /> Done
           </button>

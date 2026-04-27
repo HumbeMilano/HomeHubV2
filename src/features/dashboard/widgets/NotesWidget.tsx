@@ -133,6 +133,7 @@ function MiniNote({ note, boardRef, onUpdate, onDelete }: {
       className={styles.note}
       style={{ left: note.position_x, top: note.position_y, width: note.width, minHeight: note.height, background: note.color }}
       onMouseDown={onMouseDown}
+      onClick={(e) => e.stopPropagation()}
     >
       <div className={styles.noteHandle}>
         <GripVertical size={12} style={{ color: 'var(--text-3)', flexShrink: 0 }} />

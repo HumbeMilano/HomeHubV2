@@ -94,7 +94,7 @@ export default function RemindersWidget() {
                 key={item.id}
                 className={styles.item}
                 style={{ cursor: 'pointer' }}
-                onClick={() => setDetail(item)}
+                onClick={(e) => { e.stopPropagation(); setDetail(item); }}
               >
                 <span className={styles.dot} style={{ background: item.color }} />
                 <span className={styles.itemTitle}>{item.title}</span>
