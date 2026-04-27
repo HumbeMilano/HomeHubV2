@@ -719,19 +719,24 @@ img, svg { display: block; max-width: 100%; }
   }
 }
 
-/* iPad portrait / small landscape (769–1023 px): sidebar hidden, show bottom dock */
+/* iPad portrait / small landscape (769–1023 px): sidebar hidden, show bottom dock + mobile header */
 @media (min-width: 769px) and (max-width: 1023px) {
   .sidebar { display: none; }
 
   .main-content { margin-left: 0; }
 
-  .page-area { padding-bottom: calc(var(--dock-height) + 24px); }
+  .page-area {
+    padding-top: 64px;
+    padding-bottom: calc(var(--dock-height) + 24px);
+  }
 
   .bottom-dock { display: flex; }
 
   .bottom-dock {
     max-width: min(90vw, 600px);
   }
+
+  .mobile-header { display: flex; }
 
   .modal-sheet {
     max-width: 560px;
