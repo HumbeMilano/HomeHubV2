@@ -157,6 +157,12 @@ img, svg { display: block; max-width: 100%; }
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0;
+  /* Stacking boundary: contains every descendant's z-index so nothing inside
+     a page (Shopping suggestions dropdown at z-overlay, container-query
+     stacking quirks, etc.) can ever escape above the fixed .mobile-header
+     which lives outside .page-area. Modals/sheets that need to draw above
+     the header use createPortal(document.body) to escape this context. */
+  isolation: isolate;
 }
 
 /* ─── Bottom dock — floating pill (mobile) ───────────────────────────────── */

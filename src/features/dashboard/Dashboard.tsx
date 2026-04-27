@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import GridLayout, { type LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import {
@@ -366,8 +367,10 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* Bottom sheet edit mode (triggered from hamburger) */}
-        {dashboardEditMode && (
+        {/* Bottom sheet edit mode (triggered from hamburger) — portaled to
+            document.body so it escapes .page-area's stacking context and
+            renders above the fixed .mobile-header. */}
+        {dashboardEditMode && createPortal(
           <div className={styles.editSheetBackdrop} onClick={() => setDashboardEditMode(false)}>
             <div className={styles.editSheet} onClick={(e) => e.stopPropagation()}>
               <div className={styles.editSheetHandle} />
@@ -464,7 +467,8 @@ export default function Dashboard() {
                 Restablecer por defecto
               </button>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
     );
