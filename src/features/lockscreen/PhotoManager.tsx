@@ -4,6 +4,7 @@ import type { Photo } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { uid } from '../../lib/utils';
+import { normalizeImageForUpload } from '../../lib/imageProcessing';
 import styles from './PhotoManager.module.css';
 
 export default function PhotoManager() {
@@ -26,7 +27,15 @@ export default function PhotoManager() {
     setError('');
     setUploading(true);
 
-    for (const file of Array.from(files)) {
+    for (const rawFile of Array.from(files)) {
+      let file: File;
+      try {
+        file = await normalizeImageForUpload(rawFile);
+      } catch (e) {
+        setError(`Failed to process ${rawFile.name}: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        setUploading(false);
+        return;
+      }
       const ext = file.name.split('.').pop() ?? 'jpg';
       const path = `${uid()}.${ext}`;
 
@@ -80,7 +89,7 @@ export default function PhotoManager() {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,image/heic,image/heif,.heic,.heif"
         multiple
         style={{ display: 'none' }}
         onChange={(e) => handleFiles(e.target.files)}

@@ -3,6 +3,7 @@ import type { Member } from '../../types';
 import { useMembersStore } from '../../store/membersStore';
 import { supabase } from '../../lib/supabase';
 import { uid } from '../../lib/utils';
+import { normalizeImageForUpload } from '../../lib/imageProcessing';
 
 const MEMBER_COLORS = [
   '#5b5bf6',
@@ -36,14 +37,23 @@ export default function MemberForm({ existing, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
+    // Some pickers (Android) emit empty MIME for .heic — fall back to extension check.
+    const isImage = rawFile.type.startsWith('image/') || /\.(heic|heif)$/i.test(rawFile.name);
+    if (!isImage) {
       setUploadError('Solo se permiten imágenes.');
       return;
     }
     setUploadError('');
+    let file: File;
+    try {
+      file = await normalizeImageForUpload(rawFile);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'No se pudo procesar la imagen.');
+      return;
+    }
     setImageFile(file);
     setPreviewUrl(URL.createObjectURL(file));
   }
@@ -150,7 +160,7 @@ export default function MemberForm({ existing, onClose }: Props) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,image/heic,image/heif,.heic,.heif"
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
