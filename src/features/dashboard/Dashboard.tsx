@@ -76,12 +76,16 @@ const WIDGET_TARGET: Partial<Record<WidgetType, AppPage>> = {
 const MOBILE_PAIRS_KEY = 'homehub-dash-mobile-pairs';
 
 // ── Default layout (5 core widgets) ───────────────────────────────────────
+// Calendar first so it lands in the initial fold of the mobile feed (~375px viewport).
+// Existing users keep their localStorage-saved order; only fresh installs and
+// "Restablecer por defecto" pick this up. Desktop still positions widgets via
+// DEFAULT_LAYOUT (x/y coords), which is unaffected by array order.
 const DEFAULT_WIDGETS: WidgetDef[] = [
+  { id: 'calendar',   type: 'calendar'   },
   { id: 'clock',      type: 'clock'      },
   { id: 'weather',    type: 'weather'    },
   { id: 'finSummary', type: 'finSummary' },
   { id: 'finBills',   type: 'finBills'   },
-  { id: 'calendar',   type: 'calendar'   },
   { id: 'shopping',   type: 'shopping'   },
 ];
 

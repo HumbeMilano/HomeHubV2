@@ -124,12 +124,14 @@
    MOBILE FEED — diseño nuevo desde cero
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Root de mobile: scroll completo de la pantalla */
+/* Root de mobile: scroll completo de la pantalla.
+   Padding-top = 64px fixed header + var(--sp-4) (16px) buffer, token-driven so
+   any future header-height change moves with --sp-* tokens. */
 .mobileRoot {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding: 80px 16px 32px; /* 80px = 64px header fijo + 16px espacio visual */
+  padding: calc(64px + var(--sp-4)) var(--sp-4) var(--sp-8);
   box-sizing: border-box;
   gap: 0;
 }
@@ -139,11 +141,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 20px;
+  margin-bottom: var(--sp-3);
 }
 
 .mobileGreetingText {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--text);
@@ -151,7 +153,7 @@
 }
 
 .mobileDate {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-2);
   font-weight: 400;
   text-transform: capitalize;
