@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import GridLayout, { type LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import {
@@ -226,6 +226,9 @@ export default function Dashboard() {
 
   const activeTypes    = widgets.map((w) => w.type);
   const availableTypes = ALL_WIDGET_TYPES.filter((t) => !activeTypes.includes(t));
+  // Driven off `widgets` state (not ALL_WIDGET_TYPES) so reorder arrows refresh the modal list, not just the dashboard.
+  const orderedTypesForSheet: WidgetType[] = [...activeTypes, ...availableTypes];
+  const firstInactiveType = availableTypes[0];
 
   function addWidget(type: WidgetType) {
     setWidgets((ws) => [...ws, { id: type, type }]);
@@ -393,7 +396,7 @@ export default function Dashboard() {
                 Arrastra <GripVertical size={12} /> sobre otro widget activo para ponerlos lado a lado (½). Tócalo de nuevo para separar.
               </p>
               <div className={styles.editSheetList}>
-                {ALL_WIDGET_TYPES.map((type) => {
+                {orderedTypesForSheet.map((type) => {
                   const Icon = WIDGET_ICONS[type];
                   const active    = activeTypes.includes(type);
                   const activeIdx = widgets.findIndex((w) => w.type === type);
@@ -401,9 +404,13 @@ export default function Dashboard() {
                   const isLast    = activeIdx === widgets.length - 1;
                   const isHalf    = mobileHalfWidgets.includes(type);
                   const isDragTarget = dropTargetType === type && draggingType !== type;
+                  const showDivider = type === firstInactiveType && activeTypes.length > 0;
                   return (
+                    <Fragment key={type}>
+                      {showDivider && (
+                        <div className={styles.editSheetDivider}>Disponibles</div>
+                      )}
                     <div
-                      key={type}
                       className={[
                         styles.editSheetRow,
                         isDragTarget ? styles.editSheetRowDropTarget : '',
@@ -458,6 +465,7 @@ export default function Dashboard() {
                         </div>
                       </button>
                     </div>
+                    </Fragment>
                   );
                 })}
               </div>
