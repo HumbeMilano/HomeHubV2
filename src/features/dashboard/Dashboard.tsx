@@ -7,11 +7,8 @@ import {
   Plus, Check, ChevronRight, ChevronUp, ChevronDown, GripVertical,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { addDays, startOfDay, isAfter, isBefore, isToday, parseISO } from 'date-fns';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
-import { useCalendarStore } from '../../store/calendarStore';
-import { useShoppingStore } from '../../store/shoppingStore';
 import type { AppPage } from '../../types';
 import WidgetWrapper from './widgets/WidgetWrapper';
 import ClockWidget from './widgets/ClockWidget';
@@ -73,21 +70,6 @@ const WIDGET_TARGET: Partial<Record<WidgetType, AppPage>> = {
   finPersons: 'finance',
   reminders:  'reminders',
   notes:      'notes',
-};
-
-// Mobile card heights (px) — used for the feed
-const MOBILE_CARD_HEIGHTS: Partial<Record<WidgetType, number>> = {
-  clock:      110,
-  weather:    110,
-  finSummary: 170,
-  finBills:   200,
-  finChart:   260,
-  finIncome:  200,
-  finPersons: 380,
-  calendar:   320,
-  shopping:   260,
-  notes:      200,
-  reminders:  200,
 };
 
 // Persistence key for user-configured half-width pairs
@@ -204,28 +186,6 @@ export default function Dashboard() {
   // Reset edit mode when leaving dashboard so it doesn't auto-resume on return.
   useEffect(() => () => setDashboardEditMode(false), [setDashboardEditMode]);
 
-  // ── Dynamic mobile heights ─────────────────────────────────────────────
-  const calItems     = useCalendarStore((s) => s.items);
-  const shoppingLists = useShoppingStore((s) => s.lists);
-  const shoppingItems = useShoppingStore((s) => s.items);
-
-  const remindersHeight = useMemo(() => {
-    const now   = startOfDay(new Date());
-    const limit = addDays(now, 7);
-    const count = calItems.filter((item) => {
-      const d = parseISO(item.start_at);
-      return (isToday(d) || isAfter(d, now)) && isBefore(d, limit);
-    }).length;
-    const visible = Math.min(count, 7);
-    return Math.max(120, 64 + visible * 50 + 32); // header + rows + padding
-  }, [calItems]);
-
-  const shoppingHeight = useMemo(() => {
-    const featured = shoppingLists.find((l) => l.is_featured);
-    const count    = featured ? shoppingItems.filter((i) => i.list_id === featured.id).length : 0;
-    return Math.min(780, Math.max(260, 64 + count * 36 + 52)); // header + items + input
-  }, [shoppingLists, shoppingItems]);
-
   const activeTypes    = widgets.map((w) => w.type);
   const availableTypes = ALL_WIDGET_TYPES.filter((t) => !activeTypes.includes(t));
   // Driven off `widgets` state (not ALL_WIDGET_TYPES) so reorder arrows refresh the modal list, not just the dashboard.
@@ -335,13 +295,6 @@ export default function Dashboard() {
       }
     }
 
-    // Resolve dynamic heights for widgets that size themselves by content
-    function mobileHeight(type: WidgetType): number {
-      if (type === 'reminders') return remindersHeight;
-      if (type === 'shopping')  return shoppingHeight;
-      return MOBILE_CARD_HEIGHTS[type] ?? 200;
-    }
-
     return (
       <div className={styles.mobileRoot}>
         {/* Greeting */}
@@ -367,7 +320,6 @@ export default function Dashboard() {
                       <div
                         key={id}
                         className={`${styles.mobileCard} ${styles.mobileCardHalf} ${halfTarget ? styles.mobileCardTappable : ''}`}
-                        style={{ height: mobileHeight(type) }}
                         {...(halfTarget ? {
                           role: 'button',
                           tabIndex: 0,
@@ -393,7 +345,6 @@ export default function Dashboard() {
               <div
                 key={id}
                 className={`${styles.mobileCard} ${target ? styles.mobileCardTappable : ''}`}
-                style={{ height: mobileHeight(type) }}
                 {...(target ? {
                   role: 'button',
                   tabIndex: 0,
