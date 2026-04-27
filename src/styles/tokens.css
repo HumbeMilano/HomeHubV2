@@ -104,6 +104,10 @@
   --dock-height:   72px;
   --bento-gap:     16px;
 
+  /* Cap for content-adaptive widgets/cards (dashboard mobile feed + finance cards).
+     Mobile override below switches to a viewport-relative cap (60vh). */
+  --max-widget-height: 480px;
+
   /* ── Font weights ────────────────────────────────────────────────────── */
   --fw-bold:  700;
   --fw-heavy: 800;
@@ -190,5 +194,6 @@
   :root {
     --page-padding:   var(--sp-3);   /* 12px — mobile */
     --page-padding-h: var(--sp-3);
+    --max-widget-height: 60vh;       /* viewport-relative cap on mobile */
   }
 }

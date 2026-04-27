@@ -6,15 +6,28 @@
   height: 100%;
   overflow-y: auto;
   scrollbar-width: none;
+  padding: var(--page-padding);
+  box-sizing: border-box;
 }
 .grid::-webkit-scrollbar { display: none; }
 
+/* Cards are content-adaptive bounding boxes capped at the shared widget max.
+   Bills/persons internally use `flex: 1; overflow-y: auto` for scroll-on-overflow. */
 .card {
   background: var(--bg-2);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: var(--max-widget-height);
+}
+
+.card > *:first-child {
+  height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 [data-theme="light"] .card {
@@ -24,9 +37,10 @@
 /* Layout assignments */
 .summary { grid-column: 1; grid-row: 1; }
 .chart   { grid-column: 2; grid-row: 1; }
-.bills   { grid-column: 1; grid-row: 2; min-height: 240px; }
+.bills   { grid-column: 1; grid-row: 2; }
 .income  { grid-column: 2; grid-row: 2; }
-.persons { grid-column: 1 / -1; grid-row: 3; min-height: 220px; }
+/* Full-row card gets a taller cap since it has more horizontal real estate */
+.persons { grid-column: 1 / -1; grid-row: 3; max-height: calc(var(--max-widget-height) + 120px); }
 
 /* Mobile: single column */
 @media (max-width: 640px) {
@@ -40,10 +54,4 @@
   .bills   { grid-row: 3; }
   .income  { grid-row: 4; }
   .persons { grid-row: 5; }
-}
-
-@media (min-width: 769px) and (max-width: 1023px) {
-  .grid {
-    padding: var(--page-padding);
-  }
 }

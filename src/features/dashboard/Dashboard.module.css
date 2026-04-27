@@ -180,7 +180,9 @@
   gap: 12px;
 }
 
-/* Tarjeta base */
+/* Tarjeta base — content-adaptive height capped at the shared widget max.
+   `:first-child` rule below makes the widget root fill remaining space and
+   surrender its own `height: 100%` constraint to this bounding box. */
 .mobileCard {
   background: var(--bg-2);
   border-radius: 18px;
@@ -191,6 +193,18 @@
   container-type: size;
   container-name: widget;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: var(--max-widget-height);
+}
+
+/* Neutralize widgets' internal `height: 100%` so the card sizes to content;
+   `:first-child` keeps overlays (corner caret, nav button) untouched. */
+.mobileCard > *:first-child {
+  height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Media anchura (clock, weather) */
