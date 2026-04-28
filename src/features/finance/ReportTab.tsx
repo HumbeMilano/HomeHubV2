@@ -7,14 +7,13 @@ import { useMembersStore } from '../../store/membersStore';
 import { fmt, monthKey } from '../../lib/utils';
 import styles from './ReportTab.module.css';
 
-type Range  = 'current' | 'prev' | '3m' | '6m';
+type Range  = 'current' | 'prev' | '3m';
 type Mode   = 'category' | 'person' | 'account';
 
 const RANGE_LABELS: Record<Range,  string> = {
   current: 'Current month',
   prev:    'Previous month',
   '3m':    'Last 3 months',
-  '6m':    'Last 6 months',
 };
 const MODE_LABELS: Record<Mode, string> = {
   category: 'By category',
@@ -42,7 +41,7 @@ export default function ReportTab() {
   // Build list of months in range
   const months = useMemo(() => {
     const ref = new Date(workYear, workMonth - 1, 1);
-    const count = range === 'current' ? 1 : range === 'prev' ? 1 : range === '3m' ? 3 : 6;
+    const count = range === 'current' ? 1 : range === 'prev' ? 1 : 3;
     const offset = range === 'prev' ? 1 : 0;
     return Array.from({ length: count }, (_, i) => {
       const d = subMonths(ref, offset + (count - 1 - i));
