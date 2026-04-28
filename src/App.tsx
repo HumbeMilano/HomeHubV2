@@ -80,8 +80,9 @@ export default function App() {
         {activeMember && (
           <button
             className="mobile-profile-btn"
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Perfil"
+            onClick={lock}
+            aria-label="Bloquear pantalla"
+            title={`Lock (${activeMember.name})`}
           >
             {activeMember.avatar_url
               ? <img src={activeMember.avatar_url} alt={activeMember.name} />
