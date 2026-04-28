@@ -224,7 +224,12 @@ export default function Dashboard() {
   const INTERACTIVE_INSIDE_CARD = 'button, a, input, textarea, select, [role="button"]';
   function handleCardClick(e: React.MouseEvent, target: AppPage) {
     if (dashboardEditMode) return;
-    if ((e.target as HTMLElement).closest(INTERACTIVE_INSIDE_CARD)) return;
+    const interactive = (e.target as HTMLElement).closest(INTERACTIVE_INSIDE_CARD);
+    // closest() walks up including the element itself. The card has role="button",
+    // so without this guard every card click matches the selector and short-circuits.
+    // Skip navigation only when the matching ancestor is INSIDE the card, not when
+    // it IS the card (e.currentTarget).
+    if (interactive && interactive !== e.currentTarget) return;
     navigate(target);
   }
   function handleCardKeyDown(e: React.KeyboardEvent, target: AppPage) {
