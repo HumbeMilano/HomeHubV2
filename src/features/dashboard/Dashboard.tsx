@@ -359,6 +359,12 @@ export default function Dashboard() {
     const tEl = e.target as HTMLElement;
     if (tEl.closest('button, a, input, [role="button"]')) return;
 
+    // Block the browser's default down-stroke behavior (mousedown selection
+    // start, focus that triggers caret placement). CSS user-select: none
+    // covers most cases but Safari still emits a selectstart on the
+    // pointerdown sibling event without this.
+    e.preventDefault();
+
     const target = e.currentTarget;
     const ds: NonNullable<typeof dragRef.current> = {
       rowIdx,
@@ -482,6 +488,21 @@ export default function Dashboard() {
     if (!dashboardEditMode && dragRef.current) cancelDrag(false);
   }, [dashboardEditMode]);
 
+  // Belt-and-suspenders selectstart suppression. CSS user-select: none and
+  // pointerdown preventDefault together cover most cases, but Safari/Chrome
+  // can still fire `selectstart` once on long-press from the native gesture
+  // recognizer. React doesn't expose onSelectStart as a synthetic event so
+  // we attach a real DOM listener while edit mode is active and remove it on
+  // cleanup. Scoped to the feed so we don't block selection elsewhere.
+  useEffect(() => {
+    if (!dashboardEditMode) return;
+    const feed = feedRef.current;
+    if (!feed) return;
+    const block = (e: Event) => e.preventDefault();
+    feed.addEventListener('selectstart', block);
+    return () => feed.removeEventListener('selectstart', block);
+  }, [dashboardEditMode]);
+
   const syncedLayout = layout.filter((l) => widgets.some((w) => w.id === l.i));
 
   // ── Mobile feed view ──────────────────────────────────────────────────────
@@ -525,6 +546,14 @@ export default function Dashboard() {
               onPointerMove: handleRowPointerMove,
               onPointerUp: handleRowPointerEnd,
               onPointerCancel: handleRowPointerCancel,
+              // If the browser revokes capture mid-drag (system gesture, alert,
+              // tab switch), treat it like a cancel — release dragRef and reset
+              // visual state without committing a reorder.
+              onLostPointerCapture: handleRowPointerCancel,
+              // Suppress the long-press / right-click context menu that would
+              // otherwise pop during the 300ms wait (Android Chrome) or on
+              // mouse-emulation right-click (DevTools).
+              onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
               style: { touchAction: 'pan-y' as const },
             } : {};
 

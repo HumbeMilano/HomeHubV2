@@ -283,10 +283,18 @@
 
 /* Visual hint that a card is in edit mode: subtle accent ring + freeze the
    widget's interactive content (no pointer-events) so an embedded button
-   inside the widget can't fire while you're trying to drag/manage cards. */
+   inside the widget can't fire while you're trying to drag/manage cards.
+   user-select / -webkit-user-select / -webkit-touch-callout: prevent the
+   browser's native long-press text-selection and copy-callout from firing
+   during the 300ms press-and-hold (the JS handlers alone don't suppress
+   these — they're driven from native gesture recognizers below the event
+   layer in mobile Safari and Chrome). */
 .mobileCardEditing {
   outline: 1.5px solid var(--accent);
   outline-offset: -1.5px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .mobileCardEditing > *:first-child {
