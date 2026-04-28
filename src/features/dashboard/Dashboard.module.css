@@ -221,13 +221,6 @@
   gap: 12px;
 }
 
-/* While a row is being dragged, raise its stacking and let the pointer-handler
-   transforms (translateY, scale, shadow) take over inline. The transition for
-   the lift-in effect lives in inline styles applied at drag start. */
-.feedRowDragging {
-  cursor: grabbing;
-}
-
 /* Edit chrome — small floating bar on each card while dashboardEditMode is
    on. Absolutely positioned so it doesn't disturb the card's flex layout
    (which neutralizes the widget's height: 100% via `:first-child`). */
@@ -245,16 +238,6 @@
   padding: 4px;
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
-}
-
-.editChromeGrip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 26px;
-  color: var(--text-3);
-  pointer-events: none;
 }
 
 .editChromeBtn {
@@ -283,22 +266,76 @@
 
 /* Visual hint that a card is in edit mode: subtle accent ring + freeze the
    widget's interactive content (no pointer-events) so an embedded button
-   inside the widget can't fire while you're trying to drag/manage cards.
-   user-select / -webkit-user-select / -webkit-touch-callout: prevent the
-   browser's native long-press text-selection and copy-callout from firing
-   during the 300ms press-and-hold (the JS handlers alone don't suppress
-   these — they're driven from native gesture recognizers below the event
-   layer in mobile Safari and Chrome). */
+   inside the widget can't fire while the user is reordering. */
 .mobileCardEditing {
   outline: 1.5px solid var(--accent);
   outline-offset: -1.5px;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
+  cursor: pointer;
+  transition: outline var(--transition), transform var(--transition);
 }
 
 .mobileCardEditing > *:first-child {
   pointer-events: none;
+}
+
+/* Selected widget — accent ring + slight scale-up, sits above siblings. */
+.mobileCardSelected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  transform: scale(1.02);
+  z-index: 1;
+}
+
+/* Width-mismatch shake: brief horizontal jiggle when the user attempts to
+   swap widgets of incompatible widths. Selection is preserved; the shake
+   plays on the rejected target so the user understands what happened. */
+.mobileCardShake {
+  animation: cardShake 320ms ease;
+}
+
+@keyframes cardShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+/* Empty slot placeholder — visible only in edit mode, appended after every
+   active widget so there's always somewhere to place a selected one. */
+.mobileSlotEmpty {
+  background: var(--bg-3);
+  border: 1.5px dashed var(--border);
+  border-radius: 18px;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  font-size: 13px;
+  cursor: default;
+  transition: background var(--transition), border-color var(--transition),
+              color var(--transition);
+}
+
+/* Highlighted when a widget is selected and this slot accepts it. Subtle
+   pulse so the user can see drop targets without anything jarring. */
+.mobileSlotValid {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  cursor: pointer;
+  animation: slotPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes slotPulse {
+  0%, 100% { background: var(--accent-dim); }
+  50%      { background: rgba(10, 132, 255, 0.18); }
+}
+
+/* Dimmed when a slot can't receive the current selection (placeholder for
+   future per-slot validity rules; right now any empty slot is valid for any
+   widget so this class is reserved). */
+.mobileSlotInvalid {
+  opacity: 0.45;
 }
 
 /* Edit footer — Add widget + Reset, scrolls with the feed. */

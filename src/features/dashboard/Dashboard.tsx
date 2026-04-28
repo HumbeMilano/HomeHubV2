@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import GridLayout, { type LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import {
   Clock, Bell, ShoppingCart, Calendar, FileText, CloudSun,
   LayoutDashboard, List, PieChart, TrendingUp, Users2,
-  Plus, Check, ChevronRight, X, Columns2, GripHorizontal, RotateCcw,
+  Plus, Check, ChevronRight, X, Columns2, RotateCcw,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -146,29 +146,14 @@ export default function Dashboard() {
       : 1200
   );
 
-  // ── Pointer-event drag state for mobile reorder ───────────────────────────
-  // dragRowIdx triggers a re-render at drag start (so we can apply the
-  // .draggingRow class). All per-frame motion is direct DOM via refs to keep
-  // 60fps on phones. The ref carries the imperative state — measurements
-  // captured at drag start, the press timer, the rAF id, the live target idx.
-  const [dragRowIdx, setDragRowIdx] = useState<number | null>(null);
-  const feedRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{
-    rowIdx: number;
-    pointerId: number;
-    target: HTMLElement;
-    startY: number;
-    currentY: number;
-    pressTimer: number | null;
-    rafId: number | null;
-    started: boolean;
-    cardEls: HTMLElement[];
-    cardOffsets: number[];
-    cardHeights: number[];
-    draggedHeight: number;
-    rowGap: number;
-    targetIdx: number;
-  } | null>(null);
+  // ── Mobile reorder: tap-to-select + tap-empty-slot model ──────────────────
+  // No gesture recognition (Issue J replaced the press-and-hold drag from
+  // Issues C/D). Tap a widget to select it; tap a different widget to swap
+  // (if widths match) or reselect; tap an emphasized empty slot to move the
+  // selected widget to the end of the layout. shakeWidgetId triggers a brief
+  // animation when the user attempts a width-incompatible swap.
+  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
+  const [shakeWidgetId, setShakeWidgetId] = useState<string | null>(null);
 
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 600
@@ -296,213 +281,58 @@ export default function Dashboard() {
     }
   }
 
-  // ── Mobile reorder: Pointer Events drag (no HTML5 drag, no library) ──────
-  // Press-and-hold ~300ms to start drag; cancel if pointer moves >8px during
-  // the wait (treat as scroll). Once drag starts, setPointerCapture routes
-  // all subsequent events to our handler so the page won't scroll under us.
-  // Live motion is direct DOM via refs (transform translateY); React state
-  // updates only at start and end. No DOM order mutation during drag — we
-  // shift sibling rows visually with transforms and commit the array swap on
-  // pointerup.
-  function cancelDrag(commit: boolean) {
-    const ds = dragRef.current;
-    if (!ds) return;
-    if (ds.pressTimer !== null) window.clearTimeout(ds.pressTimer);
-    if (ds.rafId !== null) cancelAnimationFrame(ds.rafId);
-
-    if (ds.started) {
-      try { ds.target.releasePointerCapture(ds.pointerId); } catch { /* already released */ }
-      // Reset every card's inline styles
-      for (const el of ds.cardEls) {
-        el.style.transition = '';
-        el.style.transform = '';
-        el.style.zIndex = '';
-        el.style.boxShadow = '';
-        el.style.opacity = '';
-      }
-      if (commit && ds.targetIdx !== ds.rowIdx) {
-        commitRowReorder(ds.rowIdx, ds.targetIdx);
-      }
-      setDragRowIdx(null);
-    }
-    dragRef.current = null;
-  }
-
-  function commitRowReorder(fromRowIdx: number, toRowIdx: number) {
-    // Re-derive the row grouping from the latest widgets state, move the row,
-    // then flatten back. Reads mobileHalfWidgets from closure — safe because
-    // half-pair state can't change mid-drag (no UI to do so during a drag).
-    setWidgets((ws) => {
-      const halfSet = new Set(mobileHalfWidgets);
-      const rows: WidgetDef[][] = [];
-      let i = 0;
-      while (i < ws.length) {
-        const w = ws[i];
-        if (halfSet.has(w.type)) {
-          const next = ws[i + 1];
-          if (next && halfSet.has(next.type)) { rows.push([w, next]); i += 2; continue; }
-        }
-        rows.push([w]); i += 1;
-      }
-      if (fromRowIdx < 0 || fromRowIdx >= rows.length) return ws;
-      const clamped = Math.max(0, Math.min(rows.length - 1, toRowIdx));
-      const [moved] = rows.splice(fromRowIdx, 1);
-      rows.splice(clamped, 0, moved);
-      return rows.flat();
-    });
-  }
-
-  function handleRowPointerDown(e: React.PointerEvent<HTMLElement>, rowIdx: number) {
-    if (!dashboardEditMode) return;
-    // Don't start drag if the press landed on a chrome button. Pointer events
-    // bubble to the row, so without this guard tapping × or the pair toggle
-    // would race the press timer.
-    const tEl = e.target as HTMLElement;
-    if (tEl.closest('button, a, input, [role="button"]')) return;
-
-    // Block the browser's default down-stroke behavior (mousedown selection
-    // start, focus that triggers caret placement). CSS user-select: none
-    // covers most cases but Safari still emits a selectstart on the
-    // pointerdown sibling event without this.
-    e.preventDefault();
-
-    const target = e.currentTarget;
-    const ds: NonNullable<typeof dragRef.current> = {
-      rowIdx,
-      pointerId: e.pointerId,
-      target,
-      startY: e.clientY,
-      currentY: e.clientY,
-      pressTimer: null,
-      rafId: null,
-      started: false,
-      cardEls: [],
-      cardOffsets: [],
-      cardHeights: [],
-      draggedHeight: 0,
-      rowGap: 12, // matches `.mobileFeed { gap: 12px }`
-      targetIdx: rowIdx,
-    };
-    dragRef.current = ds;
-
-    ds.pressTimer = window.setTimeout(() => {
-      const cur = dragRef.current;
-      if (!cur || cur !== ds) return;
-      ds.pressTimer = null;
-      // If the user's already moved past the cancel threshold by now,
-      // pointermove already cleared dragRef. We only get here if movement <8px.
-      const feed = feedRef.current;
-      if (!feed) { dragRef.current = null; return; }
-
-      try { target.setPointerCapture(ds.pointerId); } catch { /* no-op */ }
-
-      const els = Array.from(feed.children).filter(
-        (n): n is HTMLElement => n instanceof HTMLElement,
-      );
-      ds.cardEls = els;
-      ds.cardHeights = els.map((el) => el.getBoundingClientRect().height);
-      ds.cardOffsets = els.map((el) => el.offsetTop);
-      ds.draggedHeight = ds.cardHeights[rowIdx];
-      ds.started = true;
-
-      // Visual lift on dragged row. Don't transition transform — we update
-      // it imperatively on every rAF.
-      target.style.transition = 'box-shadow 120ms ease, opacity 120ms ease';
-      target.style.zIndex = '10';
-      target.style.boxShadow = '0 12px 32px rgba(0,0,0,0.35)';
-      target.style.opacity = '0.95';
-      target.style.transform = 'scale(1.02)';
-
-      setDragRowIdx(rowIdx);
-      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        try { navigator.vibrate(10); } catch { /* haptic optional */ }
-      }
-    }, 300);
-  }
-
-  function handleRowPointerMove(e: React.PointerEvent<HTMLElement>) {
-    const ds = dragRef.current;
-    if (!ds) return;
-    ds.currentY = e.clientY;
-
-    if (!ds.started) {
-      // Pre-drag scroll-cancel: if the user moves before press-and-hold
-      // completes, treat as scroll and abandon the drag.
-      if (Math.abs(ds.currentY - ds.startY) > 8) {
-        if (ds.pressTimer !== null) window.clearTimeout(ds.pressTimer);
-        dragRef.current = null;
-      }
+  // ── Mobile edit-mode handlers (tap-to-select + tap-empty-slot) ────────────
+  function handleEditCardClick(widgetId: string) {
+    // Tap a card while in edit mode. Three cases:
+    // 1. No selection → select this widget.
+    // 2. Tap the same widget → deselect.
+    // 3. Tap a different widget → swap if widths match; otherwise shake the
+    //    target and keep selection (so the user understands what went wrong).
+    if (!selectedWidgetId) { setSelectedWidgetId(widgetId); return; }
+    if (selectedWidgetId === widgetId) { setSelectedWidgetId(null); return; }
+    const sel = widgets.find((w) => w.id === selectedWidgetId);
+    const tgt = widgets.find((w) => w.id === widgetId);
+    if (!sel || !tgt) { setSelectedWidgetId(widgetId); return; }
+    const selIsHalf = mobileHalfWidgets.includes(sel.type);
+    const tgtIsHalf = mobileHalfWidgets.includes(tgt.type);
+    if (selIsHalf !== tgtIsHalf) {
+      // Width mismatch — reject the swap with a shake on the target.
+      setShakeWidgetId(widgetId);
+      window.setTimeout(() => setShakeWidgetId(null), 350);
       return;
     }
-
-    // Drag started — prevent any residual scroll/select behavior.
-    e.preventDefault();
-    if (ds.rafId !== null) return;
-    ds.rafId = requestAnimationFrame(() => {
-      ds.rafId = null;
-      const cur = dragRef.current;
-      if (!cur || !cur.started) return;
-
-      const deltaY = cur.currentY - cur.startY;
-      const draggedEl = cur.cardEls[cur.rowIdx];
-      draggedEl.style.transform = `translateY(${deltaY}px) scale(1.02)`;
-
-      // Find new target index by comparing dragged center against each
-      // sibling's original center. Walk above for upward drag, below for
-      // downward; clamp the result to a single contiguous shift band.
-      const draggedCenter = cur.cardOffsets[cur.rowIdx] + cur.draggedHeight / 2 + deltaY;
-      let targetIdx = cur.rowIdx;
-      for (let i = 0; i < cur.cardOffsets.length; i++) {
-        if (i === cur.rowIdx) continue;
-        const otherCenter = cur.cardOffsets[i] + cur.cardHeights[i] / 2;
-        if (i < cur.rowIdx && draggedCenter < otherCenter) {
-          if (i < targetIdx) targetIdx = i;
-        } else if (i > cur.rowIdx && draggedCenter > otherCenter) {
-          if (i > targetIdx) targetIdx = i;
-        }
-      }
-
-      if (targetIdx !== cur.targetIdx) {
-        cur.targetIdx = targetIdx;
-        const shift = cur.draggedHeight + cur.rowGap;
-        for (let i = 0; i < cur.cardEls.length; i++) {
-          if (i === cur.rowIdx) continue;
-          const el = cur.cardEls[i];
-          el.style.transition = 'transform 180ms ease';
-          let dy = 0;
-          if (cur.rowIdx < cur.targetIdx && i > cur.rowIdx && i <= cur.targetIdx) {
-            dy = -shift;
-          } else if (cur.rowIdx > cur.targetIdx && i < cur.rowIdx && i >= cur.targetIdx) {
-            dy = shift;
-          }
-          el.style.transform = dy !== 0 ? `translateY(${dy}px)` : '';
-        }
-      }
+    // Compatible — swap their array positions; halfSet membership unchanged.
+    setWidgets((ws) => {
+      const idxA = ws.findIndex((w) => w.id === selectedWidgetId);
+      const idxB = ws.findIndex((w) => w.id === widgetId);
+      if (idxA === -1 || idxB === -1) return ws;
+      const arr = [...ws];
+      [arr[idxA], arr[idxB]] = [arr[idxB], arr[idxA]];
+      return arr;
     });
+    setSelectedWidgetId(null);
   }
 
-  function handleRowPointerEnd() { cancelDrag(true); }
-  function handleRowPointerCancel() { cancelDrag(false); }
+  function handleEmptySlotClick() {
+    // Empty slots only act when a widget is selected. Move the selected
+    // widget to the end of the array; following render slots it after every
+    // other widget (the appended empty slots are always at the end).
+    if (!selectedWidgetId) return;
+    setWidgets((ws) => {
+      const sel = ws.find((w) => w.id === selectedWidgetId);
+      if (!sel) return ws;
+      const remaining = ws.filter((w) => w.id !== selectedWidgetId);
+      return [...remaining, sel];
+    });
+    setSelectedWidgetId(null);
+  }
 
-  // Cleanup if user exits edit mode mid-drag (toggling Done while pressing).
+  // Clear selection whenever the user exits edit mode so it doesn't persist
+  // into a re-entry of edit mode with a stale widget id (which might have
+  // been removed in the meantime).
   useEffect(() => {
-    if (!dashboardEditMode && dragRef.current) cancelDrag(false);
-  }, [dashboardEditMode]);
-
-  // Belt-and-suspenders selectstart suppression. CSS user-select: none and
-  // pointerdown preventDefault together cover most cases, but Safari/Chrome
-  // can still fire `selectstart` once on long-press from the native gesture
-  // recognizer. React doesn't expose onSelectStart as a synthetic event so
-  // we attach a real DOM listener while edit mode is active and remove it on
-  // cleanup. Scoped to the feed so we don't block selection elsewhere.
-  useEffect(() => {
-    if (!dashboardEditMode) return;
-    const feed = feedRef.current;
-    if (!feed) return;
-    const block = (e: Event) => e.preventDefault();
-    feed.addEventListener('selectstart', block);
-    return () => feed.removeEventListener('selectstart', block);
-  }, [dashboardEditMode]);
+    if (!dashboardEditMode && selectedWidgetId !== null) setSelectedWidgetId(null);
+  }, [dashboardEditMode, selectedWidgetId]);
 
   const syncedLayout = layout.filter((l) => widgets.some((w) => w.id === l.i));
 
@@ -535,51 +365,54 @@ export default function Dashboard() {
           </span>
         </div>
 
-        {/* Widget feed — every row is a draggable container in edit mode */}
-        <div className={styles.mobileFeed} ref={feedRef}>
-          {mobileRows.map((row, rowIdx) => {
+        {/* Widget feed — in edit mode, each card is tap-to-select. */}
+        <div className={styles.mobileFeed}>
+          {mobileRows.map((row) => {
             const isPair = row.length === 2;
             const rowKey = row.map((w) => w.id).join('-');
-            const isDragging = dragRowIdx === rowIdx;
-
-            const rowProps = dashboardEditMode ? {
-              onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => handleRowPointerDown(e, rowIdx),
-              onPointerMove: handleRowPointerMove,
-              onPointerUp: handleRowPointerEnd,
-              onPointerCancel: handleRowPointerCancel,
-              // If the browser revokes capture mid-drag (system gesture, alert,
-              // tab switch), treat it like a cancel — release dragRef and reset
-              // visual state without committing a reorder.
-              onLostPointerCapture: handleRowPointerCancel,
-              // Suppress the long-press / right-click context menu that would
-              // otherwise pop during the 300ms wait (Android Chrome) or on
-              // mouse-emulation right-click (DevTools).
-              onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
-              style: { touchAction: 'pan-y' as const },
-            } : {};
 
             const cards = row.map(({ id, type }) => {
               const tgt = WIDGET_TARGET[type];
               const isHalf = mobileHalfWidgets.includes(type);
               const tappable = !dashboardEditMode && tgt;
+              const isSelected = selectedWidgetId === id;
+              const isShaking = shakeWidgetId === id;
               const cardCls = [
                 styles.mobileCard,
                 isPair ? styles.mobileCardHalf : '',
                 tappable ? styles.mobileCardTappable : '',
                 dashboardEditMode ? styles.mobileCardEditing : '',
+                isSelected ? styles.mobileCardSelected : '',
+                isShaking ? styles.mobileCardShake : '',
               ].filter(Boolean).join(' ');
+
+              const editProps = dashboardEditMode ? {
+                role: 'button' as const,
+                tabIndex: 0,
+                'aria-pressed': isSelected,
+                'aria-label': isSelected
+                  ? `Deseleccionar ${WIDGET_LABELS[type]}`
+                  : `Seleccionar ${WIDGET_LABELS[type]} para mover`,
+                onClick: () => handleEditCardClick(id),
+                onKeyDown: (e: React.KeyboardEvent) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  handleEditCardClick(id);
+                },
+              } : tappable ? {
+                role: 'button' as const,
+                tabIndex: 0,
+                'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
+                onClick: (e: React.MouseEvent) => handleCardClick(e, tgt),
+                onKeyDown: (e: React.KeyboardEvent) => handleCardKeyDown(e, tgt),
+              } : {};
 
               return (
                 <div
                   key={id}
                   className={cardCls}
-                  {...(tappable ? {
-                    role: 'button',
-                    tabIndex: 0,
-                    'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
-                    onClick: (e: React.MouseEvent) => handleCardClick(e, tgt),
-                    onKeyDown: (e: React.KeyboardEvent) => handleCardKeyDown(e, tgt),
-                  } : {})}
+                  {...editProps}
                 >
                   <WidgetContent type={type} />
                   {tappable && (
@@ -587,13 +420,10 @@ export default function Dashboard() {
                   )}
                   {dashboardEditMode && (
                     <div className={styles.editChrome} aria-hidden={!dashboardEditMode}>
-                      <span className={styles.editChromeGrip} aria-hidden="true">
-                        <GripHorizontal size={14} />
-                      </span>
                       <button
                         type="button"
                         className={`${styles.editChromeBtn} ${isHalf ? styles.editChromeBtnActive : ''}`}
-                        onClick={() => toggleHalfFor(type)}
+                        onClick={(e) => { e.stopPropagation(); toggleHalfFor(type); }}
                         aria-label={isHalf ? 'Convertir a ancho completo' : 'Combinar con el siguiente widget'}
                         aria-pressed={isHalf}
                       >
@@ -602,7 +432,7 @@ export default function Dashboard() {
                       <button
                         type="button"
                         className={`${styles.editChromeBtn} ${styles.editChromeBtnDanger}`}
-                        onClick={() => removeWidget(id)}
+                        onClick={(e) => { e.stopPropagation(); removeWidget(id); }}
                         aria-label="Quitar widget"
                       >
                         <X size={14} />
@@ -613,20 +443,54 @@ export default function Dashboard() {
               );
             });
 
-            // Wrap (always) in a row container so the pointer handlers and
-            // drag classes attach to a stable element regardless of pair/full.
             const rowCls = [
               styles.feedRow,
               isPair ? styles.feedRowPair : '',
-              isDragging ? styles.feedRowDragging : '',
             ].filter(Boolean).join(' ');
 
             return (
-              <div key={rowKey} className={rowCls} {...rowProps}>
+              <div key={rowKey} className={rowCls}>
                 {cards}
               </div>
             );
           })}
+
+          {/* Empty placeholder row in edit mode — appended after every active
+              widget so the user always has somewhere to move things. Two
+              half-cells side by side; full-width widgets need both empty
+              cells in the same row, so placing one happens via the same row
+              regardless of which cell is tapped. */}
+          {dashboardEditMode && (() => {
+            const selWidget = selectedWidgetId ? widgets.find((w) => w.id === selectedWidgetId) : null;
+            const slotIsValid = selWidget !== null;  // any empty slot accepts any selected widget
+            const slotCls = (extra = '') => [
+              styles.mobileSlotEmpty,
+              selWidget ? (slotIsValid ? styles.mobileSlotValid : styles.mobileSlotInvalid) : '',
+              extra,
+            ].filter(Boolean).join(' ');
+            return (
+              <div className={`${styles.feedRow} ${styles.feedRowPair}`}>
+                <button
+                  type="button"
+                  className={slotCls(styles.mobileCardHalf)}
+                  onClick={handleEmptySlotClick}
+                  disabled={!slotIsValid}
+                  aria-label="Mover el widget seleccionado aquí"
+                >
+                  <Plus size={18} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={slotCls(styles.mobileCardHalf)}
+                  onClick={handleEmptySlotClick}
+                  disabled={!slotIsValid}
+                  aria-label="Mover el widget seleccionado aquí"
+                >
+                  <Plus size={18} aria-hidden="true" />
+                </button>
+              </div>
+            );
+          })()}
 
           {/* Edit footer: Add widget + Reset, sits at the bottom of the feed
               so it scrolls with content. The "Done" button is fixed-position
