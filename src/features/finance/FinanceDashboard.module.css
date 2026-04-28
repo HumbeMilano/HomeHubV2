@@ -8,6 +8,13 @@
   scrollbar-width: none;
   padding: var(--page-padding);
   box-sizing: border-box;
+  /* Each card sizes to its own content (capped by .card max-height,
+     floored by min-height: 200px). Without this, the grid default
+     `align-items: stretch` makes both cards in a row equal-height — a
+     2-column row stretches the shorter card to the taller card's height,
+     so when content is similar everything looks uniformly capped at the
+     200px floor and per-widget adaptation is invisible. */
+  align-items: start;
 }
 .grid::-webkit-scrollbar { display: none; }
 
