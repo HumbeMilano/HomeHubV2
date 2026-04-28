@@ -1,11 +1,10 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import GridLayout, { type LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import {
   Clock, Bell, ShoppingCart, Calendar, FileText, CloudSun,
   LayoutDashboard, List, PieChart, TrendingUp, Users2,
-  Plus, Check, ChevronRight, ChevronUp, ChevronDown, GripVertical,
+  Plus, Check, ChevronRight, X, Columns2, GripHorizontal, RotateCcw,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -139,13 +138,36 @@ export default function Dashboard() {
     try { return JSON.parse(localStorage.getItem(MOBILE_PAIRS_KEY) ?? '["clock","weather"]') as WidgetType[]; }
     catch { return ['clock', 'weather']; }
   });
-  const [draggingType,   setDraggingType]   = useState<WidgetType | null>(null);
-  const [dropTargetType, setDropTargetType] = useState<WidgetType | null>(null);
+  const [mobileAddOpen, setMobileAddOpen] = useState(false);
   const [containerWidth, setContainerWidth] = useState(() =>
     typeof window !== 'undefined'
       ? Math.max(300, window.innerWidth - 64 - 40)
       : 1200
   );
+
+  // ── Pointer-event drag state for mobile reorder ───────────────────────────
+  // dragRowIdx triggers a re-render at drag start (so we can apply the
+  // .draggingRow class). All per-frame motion is direct DOM via refs to keep
+  // 60fps on phones. The ref carries the imperative state — measurements
+  // captured at drag start, the press timer, the rAF id, the live target idx.
+  const [dragRowIdx, setDragRowIdx] = useState<number | null>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    rowIdx: number;
+    pointerId: number;
+    target: HTMLElement;
+    startY: number;
+    currentY: number;
+    pressTimer: number | null;
+    rafId: number | null;
+    started: boolean;
+    cardEls: HTMLElement[];
+    cardOffsets: number[];
+    cardHeights: number[];
+    draggedHeight: number;
+    rowGap: number;
+    targetIdx: number;
+  } | null>(null);
 
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 600
@@ -193,9 +215,6 @@ export default function Dashboard() {
 
   const activeTypes    = widgets.map((w) => w.type);
   const availableTypes = ALL_WIDGET_TYPES.filter((t) => !activeTypes.includes(t));
-  // Driven off `widgets` state (not ALL_WIDGET_TYPES) so reorder arrows refresh the modal list, not just the dashboard.
-  const orderedTypesForSheet: WidgetType[] = [...activeTypes, ...availableTypes];
-  const firstInactiveType = availableTypes[0];
 
   function addWidget(type: WidgetType) {
     setWidgets((ws) => [...ws, { id: type, type }]);
@@ -204,17 +223,21 @@ export default function Dashboard() {
   }
 
   function removeWidget(id: string) {
+    const removed = widgets.find((w) => w.id === id);
     setWidgets((ws) => ws.filter((w) => w.id !== id));
     setLayout((ls) => ls.filter((l) => l.i !== id));
-  }
-
-  function toggleMobileWidget(type: WidgetType) {
-    if (activeTypes.includes(type)) {
-      setWidgets((ws) => ws.filter((w) => w.type !== type));
-      setLayout((ls) => ls.filter((l) => l.i !== type));
-    } else {
-      setWidgets((ws) => [...ws, { id: type, type }]);
-      setLayout((ls) => [...ls, { i: type, x: 0, y: Infinity, w: 3, h: 3, minW: 2, minH: 1 }]);
+    // If the removed widget was paired, drop the orphaned partner from the
+    // half-pair set too — otherwise it lingers as a "marked half" with no
+    // partner, which is harmless but messy.
+    if (removed && mobileHalfWidgets.includes(removed.type)) {
+      const idx = widgets.findIndex((w) => w.id === id);
+      const prev = widgets[idx - 1];
+      const next = widgets[idx + 1];
+      const partner =
+        (prev && mobileHalfWidgets.includes(prev.type)) ? prev.type :
+        (next && mobileHalfWidgets.includes(next.type)) ? next.type :
+        null;
+      setMobileHalfWidgets((arr) => arr.filter((t) => t !== removed.type && t !== partner));
     }
   }
 
@@ -240,18 +263,6 @@ export default function Dashboard() {
     navigate(target);
   }
 
-  function moveWidget(type: WidgetType, dir: 'up' | 'down') {
-    setWidgets((ws) => {
-      const idx = ws.findIndex((w) => w.type === type);
-      if (idx === -1) return ws;
-      const next = dir === 'up' ? idx - 1 : idx + 1;
-      if (next < 0 || next >= ws.length) return ws;
-      const arr = [...ws];
-      [arr[idx], arr[next]] = [arr[next], arr[idx]];
-      return arr;
-    });
-  }
-
   function resetLayout() {
     setWidgets(DEFAULT_WIDGETS);
     setLayout(DEFAULT_LAYOUT);
@@ -261,48 +272,233 @@ export default function Dashboard() {
     localStorage.setItem(MOBILE_PAIRS_KEY, JSON.stringify(['clock', 'weather']));
   }
 
-  function togglePair(a: WidgetType, b: WidgetType) {
-    setMobileHalfWidgets((prev) => {
-      const alreadyPaired = prev.includes(a) && prev.includes(b);
-      if (alreadyPaired) return prev.filter((t) => t !== a && t !== b);
-      return [...new Set([...prev, a, b])];
-    });
-    // Ensure a and b are adjacent in the widgets list
+  // Per-card pair toggle (replaces the bottom-sheet drag-onto-neighbor
+  // affordance). On a full-width card: pairs with the next neighbor in the
+  // widgets array (no-op if no next or next is already paired). On a paired
+  // card: unpairs both halves of the pair.
+  function toggleHalfFor(type: WidgetType) {
+    const idx = widgets.findIndex((w) => w.type === type);
+    if (idx === -1) return;
+    if (mobileHalfWidgets.includes(type)) {
+      const prev = widgets[idx - 1];
+      const next = widgets[idx + 1];
+      const partner =
+        (prev && mobileHalfWidgets.includes(prev.type)) ? prev.type :
+        (next && mobileHalfWidgets.includes(next.type)) ? next.type :
+        null;
+      setMobileHalfWidgets((arr) => arr.filter((t) => t !== type && t !== partner));
+    } else {
+      const next = widgets[idx + 1];
+      if (!next) return;
+      if (mobileHalfWidgets.includes(next.type)) return;
+      setMobileHalfWidgets((arr) => [...arr, type, next.type]);
+    }
+  }
+
+  // ── Mobile reorder: Pointer Events drag (no HTML5 drag, no library) ──────
+  // Press-and-hold ~300ms to start drag; cancel if pointer moves >8px during
+  // the wait (treat as scroll). Once drag starts, setPointerCapture routes
+  // all subsequent events to our handler so the page won't scroll under us.
+  // Live motion is direct DOM via refs (transform translateY); React state
+  // updates only at start and end. No DOM order mutation during drag — we
+  // shift sibling rows visually with transforms and commit the array swap on
+  // pointerup.
+  function cancelDrag(commit: boolean) {
+    const ds = dragRef.current;
+    if (!ds) return;
+    if (ds.pressTimer !== null) window.clearTimeout(ds.pressTimer);
+    if (ds.rafId !== null) cancelAnimationFrame(ds.rafId);
+
+    if (ds.started) {
+      try { ds.target.releasePointerCapture(ds.pointerId); } catch { /* already released */ }
+      // Reset every card's inline styles
+      for (const el of ds.cardEls) {
+        el.style.transition = '';
+        el.style.transform = '';
+        el.style.zIndex = '';
+        el.style.boxShadow = '';
+        el.style.opacity = '';
+      }
+      if (commit && ds.targetIdx !== ds.rowIdx) {
+        commitRowReorder(ds.rowIdx, ds.targetIdx);
+      }
+      setDragRowIdx(null);
+    }
+    dragRef.current = null;
+  }
+
+  function commitRowReorder(fromRowIdx: number, toRowIdx: number) {
+    // Re-derive the row grouping from the latest widgets state, move the row,
+    // then flatten back. Reads mobileHalfWidgets from closure — safe because
+    // half-pair state can't change mid-drag (no UI to do so during a drag).
     setWidgets((ws) => {
-      const idxA = ws.findIndex((w) => w.type === a);
-      const idxB = ws.findIndex((w) => w.type === b);
-      if (idxA === -1 || idxB === -1) return ws;
-      if (Math.abs(idxA - idxB) === 1) return ws;
-      const arr = ws.filter((w) => w.type !== b);
-      const newIdxA = arr.findIndex((w) => w.type === a);
-      arr.splice(newIdxA + 1, 0, ws[idxB]);
-      return arr;
+      const halfSet = new Set(mobileHalfWidgets);
+      const rows: WidgetDef[][] = [];
+      let i = 0;
+      while (i < ws.length) {
+        const w = ws[i];
+        if (halfSet.has(w.type)) {
+          const next = ws[i + 1];
+          if (next && halfSet.has(next.type)) { rows.push([w, next]); i += 2; continue; }
+        }
+        rows.push([w]); i += 1;
+      }
+      if (fromRowIdx < 0 || fromRowIdx >= rows.length) return ws;
+      const clamped = Math.max(0, Math.min(rows.length - 1, toRowIdx));
+      const [moved] = rows.splice(fromRowIdx, 1);
+      rows.splice(clamped, 0, moved);
+      return rows.flat();
     });
   }
+
+  function handleRowPointerDown(e: React.PointerEvent<HTMLElement>, rowIdx: number) {
+    if (!dashboardEditMode) return;
+    // Don't start drag if the press landed on a chrome button. Pointer events
+    // bubble to the row, so without this guard tapping × or the pair toggle
+    // would race the press timer.
+    const tEl = e.target as HTMLElement;
+    if (tEl.closest('button, a, input, [role="button"]')) return;
+
+    const target = e.currentTarget;
+    const ds: NonNullable<typeof dragRef.current> = {
+      rowIdx,
+      pointerId: e.pointerId,
+      target,
+      startY: e.clientY,
+      currentY: e.clientY,
+      pressTimer: null,
+      rafId: null,
+      started: false,
+      cardEls: [],
+      cardOffsets: [],
+      cardHeights: [],
+      draggedHeight: 0,
+      rowGap: 12, // matches `.mobileFeed { gap: 12px }`
+      targetIdx: rowIdx,
+    };
+    dragRef.current = ds;
+
+    ds.pressTimer = window.setTimeout(() => {
+      const cur = dragRef.current;
+      if (!cur || cur !== ds) return;
+      ds.pressTimer = null;
+      // If the user's already moved past the cancel threshold by now,
+      // pointermove already cleared dragRef. We only get here if movement <8px.
+      const feed = feedRef.current;
+      if (!feed) { dragRef.current = null; return; }
+
+      try { target.setPointerCapture(ds.pointerId); } catch { /* no-op */ }
+
+      const els = Array.from(feed.children).filter(
+        (n): n is HTMLElement => n instanceof HTMLElement,
+      );
+      ds.cardEls = els;
+      ds.cardHeights = els.map((el) => el.getBoundingClientRect().height);
+      ds.cardOffsets = els.map((el) => el.offsetTop);
+      ds.draggedHeight = ds.cardHeights[rowIdx];
+      ds.started = true;
+
+      // Visual lift on dragged row. Don't transition transform — we update
+      // it imperatively on every rAF.
+      target.style.transition = 'box-shadow 120ms ease, opacity 120ms ease';
+      target.style.zIndex = '10';
+      target.style.boxShadow = '0 12px 32px rgba(0,0,0,0.35)';
+      target.style.opacity = '0.95';
+      target.style.transform = 'scale(1.02)';
+
+      setDragRowIdx(rowIdx);
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        try { navigator.vibrate(10); } catch { /* haptic optional */ }
+      }
+    }, 300);
+  }
+
+  function handleRowPointerMove(e: React.PointerEvent<HTMLElement>) {
+    const ds = dragRef.current;
+    if (!ds) return;
+    ds.currentY = e.clientY;
+
+    if (!ds.started) {
+      // Pre-drag scroll-cancel: if the user moves before press-and-hold
+      // completes, treat as scroll and abandon the drag.
+      if (Math.abs(ds.currentY - ds.startY) > 8) {
+        if (ds.pressTimer !== null) window.clearTimeout(ds.pressTimer);
+        dragRef.current = null;
+      }
+      return;
+    }
+
+    // Drag started — prevent any residual scroll/select behavior.
+    e.preventDefault();
+    if (ds.rafId !== null) return;
+    ds.rafId = requestAnimationFrame(() => {
+      ds.rafId = null;
+      const cur = dragRef.current;
+      if (!cur || !cur.started) return;
+
+      const deltaY = cur.currentY - cur.startY;
+      const draggedEl = cur.cardEls[cur.rowIdx];
+      draggedEl.style.transform = `translateY(${deltaY}px) scale(1.02)`;
+
+      // Find new target index by comparing dragged center against each
+      // sibling's original center. Walk above for upward drag, below for
+      // downward; clamp the result to a single contiguous shift band.
+      const draggedCenter = cur.cardOffsets[cur.rowIdx] + cur.draggedHeight / 2 + deltaY;
+      let targetIdx = cur.rowIdx;
+      for (let i = 0; i < cur.cardOffsets.length; i++) {
+        if (i === cur.rowIdx) continue;
+        const otherCenter = cur.cardOffsets[i] + cur.cardHeights[i] / 2;
+        if (i < cur.rowIdx && draggedCenter < otherCenter) {
+          if (i < targetIdx) targetIdx = i;
+        } else if (i > cur.rowIdx && draggedCenter > otherCenter) {
+          if (i > targetIdx) targetIdx = i;
+        }
+      }
+
+      if (targetIdx !== cur.targetIdx) {
+        cur.targetIdx = targetIdx;
+        const shift = cur.draggedHeight + cur.rowGap;
+        for (let i = 0; i < cur.cardEls.length; i++) {
+          if (i === cur.rowIdx) continue;
+          const el = cur.cardEls[i];
+          el.style.transition = 'transform 180ms ease';
+          let dy = 0;
+          if (cur.rowIdx < cur.targetIdx && i > cur.rowIdx && i <= cur.targetIdx) {
+            dy = -shift;
+          } else if (cur.rowIdx > cur.targetIdx && i < cur.rowIdx && i >= cur.targetIdx) {
+            dy = shift;
+          }
+          el.style.transform = dy !== 0 ? `translateY(${dy}px)` : '';
+        }
+      }
+    });
+  }
+
+  function handleRowPointerEnd() { cancelDrag(true); }
+  function handleRowPointerCancel() { cancelDrag(false); }
+
+  // Cleanup if user exits edit mode mid-drag (toggling Done while pressing).
+  useEffect(() => {
+    if (!dashboardEditMode && dragRef.current) cancelDrag(false);
+  }, [dashboardEditMode]);
 
   const syncedLayout = layout.filter((l) => widgets.some((w) => w.id === l.i));
 
   // ── Mobile feed view ──────────────────────────────────────────────────────
   if (isMobile) {
-    // Group half-width widgets into rows of 2 (user-configurable pairs)
+    // Group half-width widgets into rows of 2 (user-configurable pairs).
+    // Always returns a row as an array (length 1 or 2) — easier to attach a
+    // single set of pointer handlers per row regardless of width.
     const halfSet = new Set(mobileHalfWidgets);
-    const mobileRows: Array<WidgetDef | [WidgetDef, WidgetDef]> = [];
+    const mobileRows: WidgetDef[][] = [];
     let i = 0;
     while (i < widgets.length) {
       const w = widgets[i];
       if (halfSet.has(w.type)) {
         const next = widgets[i + 1];
-        if (next && halfSet.has(next.type)) {
-          mobileRows.push([w, next]);
-          i += 2;
-        } else {
-          mobileRows.push(w);
-          i += 1;
-        }
-      } else {
-        mobileRows.push(w);
-        i += 1;
+        if (next && halfSet.has(next.type)) { mobileRows.push([w, next]); i += 2; continue; }
       }
+      mobileRows.push([w]); i += 1;
     }
 
     return (
@@ -317,163 +513,148 @@ export default function Dashboard() {
           </span>
         </div>
 
-        {/* Widget feed */}
-        <div className={styles.mobileFeed}>
-          {mobileRows.map((row, idx) => {
-            if (Array.isArray(row)) {
-              // Half-width pair
+        {/* Widget feed — every row is a draggable container in edit mode */}
+        <div className={styles.mobileFeed} ref={feedRef}>
+          {mobileRows.map((row, rowIdx) => {
+            const isPair = row.length === 2;
+            const rowKey = row.map((w) => w.id).join('-');
+            const isDragging = dragRowIdx === rowIdx;
+
+            const rowProps = dashboardEditMode ? {
+              onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => handleRowPointerDown(e, rowIdx),
+              onPointerMove: handleRowPointerMove,
+              onPointerUp: handleRowPointerEnd,
+              onPointerCancel: handleRowPointerCancel,
+              style: { touchAction: 'pan-y' as const },
+            } : {};
+
+            const cards = row.map(({ id, type }) => {
+              const tgt = WIDGET_TARGET[type];
+              const isHalf = mobileHalfWidgets.includes(type);
+              const tappable = !dashboardEditMode && tgt;
+              const cardCls = [
+                styles.mobileCard,
+                isPair ? styles.mobileCardHalf : '',
+                tappable ? styles.mobileCardTappable : '',
+                dashboardEditMode ? styles.mobileCardEditing : '',
+              ].filter(Boolean).join(' ');
+
               return (
-                <div key={idx} className={styles.mobileRow}>
-                  {row.map(({ id, type }) => {
-                    const halfTarget = WIDGET_TARGET[type];
-                    return (
-                      <div
-                        key={id}
-                        className={`${styles.mobileCard} ${styles.mobileCardHalf} ${halfTarget ? styles.mobileCardTappable : ''}`}
-                        {...(halfTarget ? {
-                          role: 'button',
-                          tabIndex: 0,
-                          'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
-                          onClick: (e: React.MouseEvent) => handleCardClick(e, halfTarget),
-                          onKeyDown: (e: React.KeyboardEvent) => handleCardKeyDown(e, halfTarget),
-                        } : {})}
+                <div
+                  key={id}
+                  className={cardCls}
+                  {...(tappable ? {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
+                    onClick: (e: React.MouseEvent) => handleCardClick(e, tgt),
+                    onKeyDown: (e: React.KeyboardEvent) => handleCardKeyDown(e, tgt),
+                  } : {})}
+                >
+                  <WidgetContent type={type} />
+                  {tappable && (
+                    <ChevronRight size={14} aria-hidden="true" className={styles.cardCaret} />
+                  )}
+                  {dashboardEditMode && (
+                    <div className={styles.editChrome} aria-hidden={!dashboardEditMode}>
+                      <span className={styles.editChromeGrip} aria-hidden="true">
+                        <GripHorizontal size={14} />
+                      </span>
+                      <button
+                        type="button"
+                        className={`${styles.editChromeBtn} ${isHalf ? styles.editChromeBtnActive : ''}`}
+                        onClick={() => toggleHalfFor(type)}
+                        aria-label={isHalf ? 'Convertir a ancho completo' : 'Combinar con el siguiente widget'}
+                        aria-pressed={isHalf}
                       >
-                        <WidgetContent type={type} />
-                        {halfTarget && (
-                          <ChevronRight size={14} aria-hidden="true" className={styles.cardCaret} />
-                        )}
-                      </div>
-                    );
-                  })}
+                        <Columns2 size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.editChromeBtn} ${styles.editChromeBtnDanger}`}
+                        onClick={() => removeWidget(id)}
+                        aria-label="Quitar widget"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
-            }
-            // Full-width card
-            const { id, type } = row;
-            const target = WIDGET_TARGET[type];
+            });
+
+            // Wrap (always) in a row container so the pointer handlers and
+            // drag classes attach to a stable element regardless of pair/full.
+            const rowCls = [
+              styles.feedRow,
+              isPair ? styles.feedRowPair : '',
+              isDragging ? styles.feedRowDragging : '',
+            ].filter(Boolean).join(' ');
+
             return (
-              <div
-                key={id}
-                className={`${styles.mobileCard} ${target ? styles.mobileCardTappable : ''}`}
-                {...(target ? {
-                  role: 'button',
-                  tabIndex: 0,
-                  'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
-                  onClick: (e: React.MouseEvent) => handleCardClick(e, target),
-                  onKeyDown: (e: React.KeyboardEvent) => handleCardKeyDown(e, target),
-                } : {})}
-              >
-                <WidgetContent type={type} />
-                {target && (
-                  <ChevronRight size={14} aria-hidden="true" className={styles.cardCaret} />
-                )}
+              <div key={rowKey} className={rowCls} {...rowProps}>
+                {cards}
               </div>
             );
           })}
-        </div>
 
-        {/* Bottom sheet edit mode (triggered from hamburger) — portaled to
-            document.body so it escapes .page-area's stacking context and
-            renders above the fixed .mobile-header. */}
-        {dashboardEditMode && createPortal(
-          <div className={styles.editSheetBackdrop} onClick={() => setDashboardEditMode(false)}>
-            <div className={styles.editSheet} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.editSheetHandle} />
-              <div className={styles.editSheetHeader}>
-                <span className={styles.editSheetTitle}>Personalizar</span>
-                <button
-                  className={styles.editSheetDone}
-                  onClick={() => setDashboardEditMode(false)}
-                >
-                  <Check size={16} /> Listo
-                </button>
-              </div>
-              <p className={styles.editSheetHint}>
-                Arrastra <GripVertical size={12} /> sobre otro widget activo para ponerlos lado a lado (½). Tócalo de nuevo para separar.
-              </p>
-              <div className={styles.editSheetList}>
-                {orderedTypesForSheet.map((type) => {
-                  const Icon = WIDGET_ICONS[type];
-                  const active    = activeTypes.includes(type);
-                  const activeIdx = widgets.findIndex((w) => w.type === type);
-                  const isFirst   = activeIdx === 0;
-                  const isLast    = activeIdx === widgets.length - 1;
-                  const isHalf    = mobileHalfWidgets.includes(type);
-                  const isDragTarget = dropTargetType === type && draggingType !== type;
-                  const showDivider = type === firstInactiveType && activeTypes.length > 0;
-                  return (
-                    <Fragment key={type}>
-                      {showDivider && (
-                        <div className={styles.editSheetDivider}>Disponibles</div>
-                      )}
-                    <div
-                      className={[
-                        styles.editSheetRow,
-                        isDragTarget ? styles.editSheetRowDropTarget : '',
-                      ].join(' ')}
-                      draggable={active}
-                      onDragStart={() => { setDraggingType(type); setDropTargetType(null); }}
-                      onDragOver={(e) => { if (active && draggingType && draggingType !== type) { e.preventDefault(); setDropTargetType(type); } }}
-                      onDragLeave={() => setDropTargetType(null)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        if (draggingType && draggingType !== type && active && activeTypes.includes(draggingType)) {
-                          togglePair(draggingType, type);
-                        }
-                        setDraggingType(null);
-                        setDropTargetType(null);
-                      }}
-                      onDragEnd={() => { setDraggingType(null); setDropTargetType(null); }}
-                    >
-                      {/* Drag handle + reorder arrows */}
-                      <div className={styles.editSheetArrows}>
-                        <GripVertical size={14} className={styles.dragHandle} style={{ opacity: active ? 0.5 : 0.2, cursor: active ? 'grab' : 'default' }} />
-                        <button
-                          className={styles.arrowBtn}
-                          onClick={() => moveWidget(type, 'up')}
-                          disabled={!active || isFirst}
-                          aria-label="Mover arriba"
-                        >
-                          <ChevronUp size={14} />
-                        </button>
-                        <button
-                          className={styles.arrowBtn}
-                          onClick={() => moveWidget(type, 'down')}
-                          disabled={!active || isLast}
-                          aria-label="Mover abajo"
-                        >
-                          <ChevronDown size={14} />
-                        </button>
-                      </div>
-                      <button
-                        className={styles.editSheetRowContent}
-                        onClick={() => toggleMobileWidget(type)}
-                      >
-                        <div className={styles.editSheetRowLeft}>
-                          <Icon size={18} />
-                          <span>{WIDGET_LABELS[type]}</span>
-                          {isHalf && active && (
-                            <span className={styles.halfChip}>½</span>
-                          )}
-                        </div>
-                        <div className={`${styles.toggle} ${active ? styles.toggleOn : ''}`}>
-                          <div className={styles.toggleThumb} />
-                        </div>
-                      </button>
-                    </div>
-                    </Fragment>
-                  );
-                })}
-              </div>
+          {/* Edit footer: Add widget + Reset, sits at the bottom of the feed
+              so it scrolls with content. The "Done" button is fixed-position
+              below this and is the only way to exit edit mode. */}
+          {dashboardEditMode && (
+            <div className={styles.editFooter}>
               <button
-                className={styles.editSheetReset}
-                onClick={() => { resetLayout(); }}
+                type="button"
+                className={styles.editAddBtn}
+                onClick={() => setMobileAddOpen((o) => !o)}
+                disabled={availableTypes.length === 0}
+                aria-expanded={mobileAddOpen}
               >
-                Restablecer por defecto
+                <Plus size={16} /> Agregar widget
+                {availableTypes.length > 0 && (
+                  <span className={styles.editAddCount}>{availableTypes.length}</span>
+                )}
+              </button>
+              {mobileAddOpen && availableTypes.length > 0 && (
+                <div className={styles.editAddList}>
+                  {availableTypes.map((t) => {
+                    const Icon = WIDGET_ICONS[t];
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        className={styles.editAddChip}
+                        onClick={() => { addWidget(t); setMobileAddOpen(false); }}
+                      >
+                        <Icon size={14} /> {WIDGET_LABELS[t]}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <button
+                type="button"
+                className={styles.editResetBtn}
+                onClick={() => { resetLayout(); setMobileAddOpen(false); }}
+              >
+                <RotateCcw size={14} /> Restablecer por defecto
               </button>
             </div>
-          </div>,
-          document.body,
+          )}
+        </div>
+
+        {/* Floating Done button — fixed above the page-area scroll, visible
+            during edit mode. The single way to exit edit mode (matching
+            desktop's "Done" button in edit-mode actions). */}
+        {dashboardEditMode && (
+          <button
+            type="button"
+            className={styles.floatingDoneBtn}
+            onClick={() => { setDashboardEditMode(false); setMobileAddOpen(false); }}
+            aria-label="Salir del modo edición"
+          >
+            <Check size={16} /> Listo
+          </button>
         )}
       </div>
     );
