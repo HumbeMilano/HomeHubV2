@@ -80,12 +80,6 @@
   font-family: var(--font-mono);
 }
 
-.pct {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  margin-left: auto;
-}
-
 .barTrack {
   height: 6px;
   background: var(--bg-3);

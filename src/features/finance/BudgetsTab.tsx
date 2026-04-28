@@ -48,7 +48,6 @@ export default function BudgetsTab() {
               <div className={styles.amounts}>
                 <span className={styles.spent}>{fmt(spent)}</span>
                 <span className={styles.limit}>/ {fmt(budget.limit_amount)}</span>
-                <span className={styles.pct} style={{ color: barColor }}>{Math.round(pct)}%</span>
               </div>
               <div className={styles.barTrack}>
                 <div

@@ -84,8 +84,7 @@ export default function ReportTab() {
   const totalBills  = rangeBills.reduce((s, rb) => s + rb.amount, 0);
   const totalIncome = rangeIncome.reduce((s, i) => s + i.amount, 0);
   const balance     = totalIncome - totalBills;
-  const paidCount   = rangeBills.filter((rb) => rb.status === 'paid').length;
-  const paidPct     = rangeBills.length > 0 ? Math.round((paidCount / rangeBills.length) * 100) : 0;
+  const paidAmount  = rangeBills.filter((rb) => rb.status === 'paid').reduce((s, rb) => s + rb.amount, 0);
 
   // Build pie chart data
   const pieData = useMemo(() => {
@@ -237,8 +236,8 @@ export default function ReportTab() {
           <div className={styles.summaryValue} style={{ color: balance >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmt(balance)}</div>
         </div>
         <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>% Paid</div>
-          <div className={styles.summaryValue} style={{ color: 'var(--accent)' }}>{paidPct}%</div>
+          <div className={styles.summaryLabel}>Paid</div>
+          <div className={styles.summaryValue} style={{ color: 'var(--accent)' }}>{fmt(paidAmount)}</div>
         </div>
       </div>
 
