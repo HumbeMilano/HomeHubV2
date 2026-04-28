@@ -11,8 +11,18 @@
 }
 .grid::-webkit-scrollbar { display: none; }
 
-/* Cards are content-adaptive bounding boxes capped at the shared widget max.
-   Bills/persons internally use `flex: 1; overflow-y: auto` for scroll-on-overflow. */
+/* Cards are bounding boxes between a 200px floor and the shared widget max.
+   The floor exists because several finance widgets have naturally short
+   content (FinChartWidget's donut is fixed 160×160; FinSummaryWidget is a
+   handful of rows) — without it the cards collapse to ~200px and the page
+   feels half-empty. The cap still engages for overflow widgets (Bills,
+   Persons), and they internally use `flex: 1; overflow-y: auto` to scroll.
+
+   Note on container queries: the @container widget (max-height: ...) rules
+   inside the finance widget modules (FinSummary/Bills/Chart/Income/Persons)
+   are dead code on this page — no ancestor here has `container-name: widget`.
+   Left in place because they're harmless and stay relevant if a container
+   context is added to these cards in the future. */
 .card {
   background: var(--bg-2);
   border-radius: var(--r-lg);
@@ -20,7 +30,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 200px;
   max-height: var(--max-widget-height);
 }
 
