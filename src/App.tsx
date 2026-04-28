@@ -48,6 +48,7 @@ export default function App() {
         onNavigate={navigate}
         onSettings={() => setSettingsOpen(true)}
         onLock={lock}
+        onEditDashboard={() => setDashboardEditMode(true)}
         activeMember={activeMember}
         theme={theme}
         onThemeToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -79,8 +80,9 @@ export default function App() {
         {activeMember && (
           <button
             className="mobile-profile-btn"
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Perfil"
+            onClick={lock}
+            aria-label="Bloquear pantalla"
+            title={`Lock (${activeMember.name})`}
           >
             {activeMember.avatar_url
               ? <img src={activeMember.avatar_url} alt={activeMember.name} />
@@ -97,11 +99,12 @@ export default function App() {
 }
 
 /* ── Slim sidebar (desktop) — expands on hover ────────────────────────────── */
-function SlimSidebar({ currentPage, onNavigate, onSettings, onLock, activeMember, theme, onThemeToggle }: {
+function SlimSidebar({ currentPage, onNavigate, onSettings, onLock, onEditDashboard, activeMember, theme, onThemeToggle }: {
   currentPage: AppPage;
   onNavigate: (p: AppPage) => void;
   onSettings: () => void;
   onLock: () => void;
+  onEditDashboard: () => void;
   activeMember: Member | null;
   theme: string;
   onThemeToggle: () => void;
@@ -151,6 +154,14 @@ function SlimSidebar({ currentPage, onNavigate, onSettings, onLock, activeMember
         {theme === 'dark' ? <Sun size={18} style={{ flexShrink: 0 }} /> : <Moon size={18} style={{ flexShrink: 0 }} />}
         <span className="sidebar-label">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
       </button>
+
+      {/* Personalizar — dashboard only */}
+      {currentPage === 'dashboard' && (
+        <button className="nav-item" onClick={onEditDashboard} aria-label="Personalizar dashboard">
+          <Pencil size={18} style={{ flexShrink: 0 }} />
+          <span className="sidebar-label">Personalizar</span>
+        </button>
+      )}
 
       {/* Settings */}
       <button className="nav-item" onClick={onSettings} aria-label="Settings">

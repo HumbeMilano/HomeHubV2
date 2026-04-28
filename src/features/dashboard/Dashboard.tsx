@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import GridLayout, { type LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import {
   Clock, Bell, ShoppingCart, Calendar, FileText, CloudSun,
   LayoutDashboard, List, PieChart, TrendingUp, Users2,
-  Plus, Check, Pencil, ArrowUpRight, ChevronUp, ChevronDown, GripVertical,
+  Plus, Check, ChevronRight, X, Columns2, RotateCcw,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { addDays, startOfDay, isAfter, isBefore, isToday, parseISO } from 'date-fns';
 import { useAuthStore } from '../../store/authStore';
 import { useAppStore } from '../../store/appStore';
-import { useCalendarStore } from '../../store/calendarStore';
-import { useShoppingStore } from '../../store/shoppingStore';
 import type { AppPage } from '../../types';
 import WidgetWrapper from './widgets/WidgetWrapper';
 import ClockWidget from './widgets/ClockWidget';
@@ -75,31 +73,20 @@ const WIDGET_TARGET: Partial<Record<WidgetType, AppPage>> = {
   notes:      'notes',
 };
 
-// Mobile card heights (px) — used for the feed
-const MOBILE_CARD_HEIGHTS: Partial<Record<WidgetType, number>> = {
-  clock:      110,
-  weather:    110,
-  finSummary: 170,
-  finBills:   200,
-  finChart:   260,
-  finIncome:  200,
-  finPersons: 380,
-  calendar:   320,
-  shopping:   260,
-  notes:      200,
-  reminders:  200,
-};
-
 // Persistence key for user-configured half-width pairs
 const MOBILE_PAIRS_KEY = 'homehub-dash-mobile-pairs';
 
 // ── Default layout (5 core widgets) ───────────────────────────────────────
+// Calendar first so it lands in the initial fold of the mobile feed (~375px viewport).
+// Existing users keep their localStorage-saved order; only fresh installs and
+// "Restablecer por defecto" pick this up. Desktop still positions widgets via
+// DEFAULT_LAYOUT (x/y coords), which is unaffected by array order.
 const DEFAULT_WIDGETS: WidgetDef[] = [
+  { id: 'calendar',   type: 'calendar'   },
   { id: 'clock',      type: 'clock'      },
   { id: 'weather',    type: 'weather'    },
   { id: 'finSummary', type: 'finSummary' },
   { id: 'finBills',   type: 'finBills'   },
-  { id: 'calendar',   type: 'calendar'   },
   { id: 'shopping',   type: 'shopping'   },
 ];
 
@@ -145,7 +132,6 @@ export default function Dashboard() {
   const { activeMember } = useAuthStore();
   const { navigate, dashboardEditMode, setDashboardEditMode } = useAppStore();
 
-  const [desktopEditMode, setDesktopEditMode] = useState(false);
   const [addOpen, setAddOpen]   = useState(false);
   const [widgets, setWidgets]   = useState<WidgetDef[]>(loadWidgets);
   const [layout,  setLayout]    = useState<LayoutItem[]>(loadLayout);
@@ -153,13 +139,21 @@ export default function Dashboard() {
     try { return JSON.parse(localStorage.getItem(MOBILE_PAIRS_KEY) ?? '["clock","weather"]') as WidgetType[]; }
     catch { return ['clock', 'weather']; }
   });
-  const [draggingType,   setDraggingType]   = useState<WidgetType | null>(null);
-  const [dropTargetType, setDropTargetType] = useState<WidgetType | null>(null);
+  const [mobileAddOpen, setMobileAddOpen] = useState(false);
   const [containerWidth, setContainerWidth] = useState(() =>
     typeof window !== 'undefined'
       ? Math.max(300, window.innerWidth - 64 - 40)
       : 1200
   );
+
+  // ── Mobile reorder: tap-to-select + tap-empty-slot model ──────────────────
+  // No gesture recognition (Issue J replaced the press-and-hold drag from
+  // Issues C/D). Tap a widget to select it; tap a different widget to swap
+  // (if widths match) or reselect; tap an emphasized empty slot to move the
+  // selected widget to the end of the layout. shakeWidgetId triggers a brief
+  // animation when the user attempts a width-incompatible swap.
+  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
+  const [shakeWidgetId, setShakeWidgetId] = useState<string | null>(null);
 
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.innerWidth < 600
@@ -202,27 +196,8 @@ export default function Dashboard() {
   useEffect(() => { localStorage.setItem(LAYOUT_KEY,     JSON.stringify(layout));            }, [layout]);
   useEffect(() => { localStorage.setItem(MOBILE_PAIRS_KEY, JSON.stringify(mobileHalfWidgets)); }, [mobileHalfWidgets]);
 
-  // ── Dynamic mobile heights ─────────────────────────────────────────────
-  const calItems     = useCalendarStore((s) => s.items);
-  const shoppingLists = useShoppingStore((s) => s.lists);
-  const shoppingItems = useShoppingStore((s) => s.items);
-
-  const remindersHeight = useMemo(() => {
-    const now   = startOfDay(new Date());
-    const limit = addDays(now, 7);
-    const count = calItems.filter((item) => {
-      const d = parseISO(item.start_at);
-      return (isToday(d) || isAfter(d, now)) && isBefore(d, limit);
-    }).length;
-    const visible = Math.min(count, 7);
-    return Math.max(120, 64 + visible * 50 + 32); // header + rows + padding
-  }, [calItems]);
-
-  const shoppingHeight = useMemo(() => {
-    const featured = shoppingLists.find((l) => l.is_featured);
-    const count    = featured ? shoppingItems.filter((i) => i.list_id === featured.id).length : 0;
-    return Math.min(780, Math.max(260, 64 + count * 36 + 52)); // header + items + input
-  }, [shoppingLists, shoppingItems]);
+  // Reset edit mode when leaving dashboard so it doesn't auto-resume on return.
+  useEffect(() => () => setDashboardEditMode(false), [setDashboardEditMode]);
 
   const activeTypes    = widgets.map((w) => w.type);
   const availableTypes = ALL_WIDGET_TYPES.filter((t) => !activeTypes.includes(t));
@@ -234,30 +209,44 @@ export default function Dashboard() {
   }
 
   function removeWidget(id: string) {
+    const removed = widgets.find((w) => w.id === id);
     setWidgets((ws) => ws.filter((w) => w.id !== id));
     setLayout((ls) => ls.filter((l) => l.i !== id));
-  }
-
-  function toggleMobileWidget(type: WidgetType) {
-    if (activeTypes.includes(type)) {
-      setWidgets((ws) => ws.filter((w) => w.type !== type));
-      setLayout((ls) => ls.filter((l) => l.i !== type));
-    } else {
-      setWidgets((ws) => [...ws, { id: type, type }]);
-      setLayout((ls) => [...ls, { i: type, x: 0, y: Infinity, w: 3, h: 3, minW: 2, minH: 1 }]);
+    // If the removed widget was paired, drop the orphaned partner from the
+    // half-pair set too — otherwise it lingers as a "marked half" with no
+    // partner, which is harmless but messy.
+    if (removed && mobileHalfWidgets.includes(removed.type)) {
+      const idx = widgets.findIndex((w) => w.id === id);
+      const prev = widgets[idx - 1];
+      const next = widgets[idx + 1];
+      const partner =
+        (prev && mobileHalfWidgets.includes(prev.type)) ? prev.type :
+        (next && mobileHalfWidgets.includes(next.type)) ? next.type :
+        null;
+      setMobileHalfWidgets((arr) => arr.filter((t) => t !== removed.type && t !== partner));
     }
   }
 
-  function moveWidget(type: WidgetType, dir: 'up' | 'down') {
-    setWidgets((ws) => {
-      const idx = ws.findIndex((w) => w.type === type);
-      if (idx === -1) return ws;
-      const next = dir === 'up' ? idx - 1 : idx + 1;
-      if (next < 0 || next >= ws.length) return ws;
-      const arr = [...ws];
-      [arr[idx], arr[next]] = [arr[next], arr[idx]];
-      return arr;
-    });
+  // Whole-card tap → widget's full page. Skip if click landed on an interactive
+  // descendant (button, input, role="button" span/li/div) so toggles, deletes,
+  // day cells, etc. keep working without manual stopPropagation everywhere.
+  const INTERACTIVE_INSIDE_CARD = 'button, a, input, textarea, select, [role="button"]';
+  function handleCardClick(e: React.MouseEvent, target: AppPage) {
+    if (dashboardEditMode) return;
+    const interactive = (e.target as HTMLElement).closest(INTERACTIVE_INSIDE_CARD);
+    // closest() walks up including the element itself. The card has role="button",
+    // so without this guard every card click matches the selector and short-circuits.
+    // Skip navigation only when the matching ancestor is INSIDE the card, not when
+    // it IS the card (e.currentTarget).
+    if (interactive && interactive !== e.currentTarget) return;
+    navigate(target);
+  }
+  function handleCardKeyDown(e: React.KeyboardEvent, target: AppPage) {
+    if (dashboardEditMode) return;
+    if (e.target !== e.currentTarget) return;
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    navigate(target);
   }
 
   function resetLayout() {
@@ -269,55 +258,99 @@ export default function Dashboard() {
     localStorage.setItem(MOBILE_PAIRS_KEY, JSON.stringify(['clock', 'weather']));
   }
 
-  function togglePair(a: WidgetType, b: WidgetType) {
-    setMobileHalfWidgets((prev) => {
-      const alreadyPaired = prev.includes(a) && prev.includes(b);
-      if (alreadyPaired) return prev.filter((t) => t !== a && t !== b);
-      return [...new Set([...prev, a, b])];
-    });
-    // Ensure a and b are adjacent in the widgets list
+  // Per-card pair toggle (replaces the bottom-sheet drag-onto-neighbor
+  // affordance). On a full-width card: pairs with the next neighbor in the
+  // widgets array (no-op if no next or next is already paired). On a paired
+  // card: unpairs both halves of the pair.
+  function toggleHalfFor(type: WidgetType) {
+    const idx = widgets.findIndex((w) => w.type === type);
+    if (idx === -1) return;
+    if (mobileHalfWidgets.includes(type)) {
+      const prev = widgets[idx - 1];
+      const next = widgets[idx + 1];
+      const partner =
+        (prev && mobileHalfWidgets.includes(prev.type)) ? prev.type :
+        (next && mobileHalfWidgets.includes(next.type)) ? next.type :
+        null;
+      setMobileHalfWidgets((arr) => arr.filter((t) => t !== type && t !== partner));
+    } else {
+      const next = widgets[idx + 1];
+      if (!next) return;
+      if (mobileHalfWidgets.includes(next.type)) return;
+      setMobileHalfWidgets((arr) => [...arr, type, next.type]);
+    }
+  }
+
+  // ── Mobile edit-mode handlers (tap-to-select + tap-empty-slot) ────────────
+  function handleEditCardClick(widgetId: string) {
+    // Tap a card while in edit mode. Three cases:
+    // 1. No selection → select this widget.
+    // 2. Tap the same widget → deselect.
+    // 3. Tap a different widget → swap if widths match; otherwise shake the
+    //    target and keep selection (so the user understands what went wrong).
+    if (!selectedWidgetId) { setSelectedWidgetId(widgetId); return; }
+    if (selectedWidgetId === widgetId) { setSelectedWidgetId(null); return; }
+    const sel = widgets.find((w) => w.id === selectedWidgetId);
+    const tgt = widgets.find((w) => w.id === widgetId);
+    if (!sel || !tgt) { setSelectedWidgetId(widgetId); return; }
+    const selIsHalf = mobileHalfWidgets.includes(sel.type);
+    const tgtIsHalf = mobileHalfWidgets.includes(tgt.type);
+    if (selIsHalf !== tgtIsHalf) {
+      // Width mismatch — reject the swap with a shake on the target.
+      setShakeWidgetId(widgetId);
+      window.setTimeout(() => setShakeWidgetId(null), 350);
+      return;
+    }
+    // Compatible — swap their array positions; halfSet membership unchanged.
     setWidgets((ws) => {
-      const idxA = ws.findIndex((w) => w.type === a);
-      const idxB = ws.findIndex((w) => w.type === b);
+      const idxA = ws.findIndex((w) => w.id === selectedWidgetId);
+      const idxB = ws.findIndex((w) => w.id === widgetId);
       if (idxA === -1 || idxB === -1) return ws;
-      if (Math.abs(idxA - idxB) === 1) return ws;
-      const arr = ws.filter((w) => w.type !== b);
-      const newIdxA = arr.findIndex((w) => w.type === a);
-      arr.splice(newIdxA + 1, 0, ws[idxB]);
+      const arr = [...ws];
+      [arr[idxA], arr[idxB]] = [arr[idxB], arr[idxA]];
       return arr;
     });
+    setSelectedWidgetId(null);
   }
+
+  function handleEmptySlotClick() {
+    // Empty slots only act when a widget is selected. Move the selected
+    // widget to the end of the array; following render slots it after every
+    // other widget (the appended empty slots are always at the end).
+    if (!selectedWidgetId) return;
+    setWidgets((ws) => {
+      const sel = ws.find((w) => w.id === selectedWidgetId);
+      if (!sel) return ws;
+      const remaining = ws.filter((w) => w.id !== selectedWidgetId);
+      return [...remaining, sel];
+    });
+    setSelectedWidgetId(null);
+  }
+
+  // Clear selection whenever the user exits edit mode so it doesn't persist
+  // into a re-entry of edit mode with a stale widget id (which might have
+  // been removed in the meantime).
+  useEffect(() => {
+    if (!dashboardEditMode && selectedWidgetId !== null) setSelectedWidgetId(null);
+  }, [dashboardEditMode, selectedWidgetId]);
 
   const syncedLayout = layout.filter((l) => widgets.some((w) => w.id === l.i));
 
   // ── Mobile feed view ──────────────────────────────────────────────────────
   if (isMobile) {
-    // Group half-width widgets into rows of 2 (user-configurable pairs)
+    // Group half-width widgets into rows of 2 (user-configurable pairs).
+    // Always returns a row as an array (length 1 or 2) — easier to attach a
+    // single set of pointer handlers per row regardless of width.
     const halfSet = new Set(mobileHalfWidgets);
-    const mobileRows: Array<WidgetDef | [WidgetDef, WidgetDef]> = [];
+    const mobileRows: WidgetDef[][] = [];
     let i = 0;
     while (i < widgets.length) {
       const w = widgets[i];
       if (halfSet.has(w.type)) {
         const next = widgets[i + 1];
-        if (next && halfSet.has(next.type)) {
-          mobileRows.push([w, next]);
-          i += 2;
-        } else {
-          mobileRows.push(w);
-          i += 1;
-        }
-      } else {
-        mobileRows.push(w);
-        i += 1;
+        if (next && halfSet.has(next.type)) { mobileRows.push([w, next]); i += 2; continue; }
       }
-    }
-
-    // Resolve dynamic heights for widgets that size themselves by content
-    function mobileHeight(type: WidgetType): number {
-      if (type === 'reminders') return remindersHeight;
-      if (type === 'shopping')  return shoppingHeight;
-      return MOBILE_CARD_HEIGHTS[type] ?? 200;
+      mobileRows.push([w]); i += 1;
     }
 
     return (
@@ -332,163 +365,209 @@ export default function Dashboard() {
           </span>
         </div>
 
-        {/* Widget feed */}
+        {/* Widget feed — in edit mode, each card is tap-to-select. */}
         <div className={styles.mobileFeed}>
-          {mobileRows.map((row, idx) => {
-            if (Array.isArray(row)) {
-              // Half-width pair
+          {mobileRows.map((row) => {
+            const isPair = row.length === 2;
+            const rowKey = row.map((w) => w.id).join('-');
+
+            const cards = row.map(({ id, type }) => {
+              const tgt = WIDGET_TARGET[type];
+              const isHalf = mobileHalfWidgets.includes(type);
+              const tappable = !dashboardEditMode && tgt;
+              const isSelected = selectedWidgetId === id;
+              const isShaking = shakeWidgetId === id;
+              const cardCls = [
+                styles.mobileCard,
+                isPair ? styles.mobileCardHalf : '',
+                tappable ? styles.mobileCardTappable : '',
+                dashboardEditMode ? styles.mobileCardEditing : '',
+                isSelected ? styles.mobileCardSelected : '',
+                isShaking ? styles.mobileCardShake : '',
+              ].filter(Boolean).join(' ');
+
+              const editProps = dashboardEditMode ? {
+                role: 'button' as const,
+                tabIndex: 0,
+                'aria-pressed': isSelected,
+                'aria-label': isSelected
+                  ? `Deseleccionar ${WIDGET_LABELS[type]}`
+                  : `Seleccionar ${WIDGET_LABELS[type]} para mover`,
+                onClick: () => handleEditCardClick(id),
+                onKeyDown: (e: React.KeyboardEvent) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  handleEditCardClick(id);
+                },
+              } : tappable ? {
+                role: 'button' as const,
+                tabIndex: 0,
+                'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
+                onClick: (e: React.MouseEvent) => handleCardClick(e, tgt),
+                onKeyDown: (e: React.KeyboardEvent) => handleCardKeyDown(e, tgt),
+              } : {};
+
               return (
-                <div key={idx} className={styles.mobileRow}>
-                  {row.map(({ id, type }) => (
-                    <div
-                      key={id}
-                      className={`${styles.mobileCard} ${styles.mobileCardHalf}`}
-                      style={{ height: mobileHeight(type) }}
-                    >
-                      <WidgetContent type={type} />
+                <div
+                  key={id}
+                  className={cardCls}
+                  {...editProps}
+                >
+                  <WidgetContent type={type} />
+                  {tappable && (
+                    <ChevronRight size={14} aria-hidden="true" className={styles.cardCaret} />
+                  )}
+                  {dashboardEditMode && (
+                    <div className={styles.editChrome} aria-hidden={!dashboardEditMode}>
+                      <button
+                        type="button"
+                        className={`${styles.editChromeBtn} ${isHalf ? styles.editChromeBtnActive : ''}`}
+                        onClick={(e) => { e.stopPropagation(); toggleHalfFor(type); }}
+                        aria-label={isHalf ? 'Convertir a ancho completo' : 'Combinar con el siguiente widget'}
+                        aria-pressed={isHalf}
+                      >
+                        <Columns2 size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.editChromeBtn} ${styles.editChromeBtnDanger}`}
+                        onClick={(e) => { e.stopPropagation(); removeWidget(id); }}
+                        aria-label="Quitar widget"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
-                  ))}
+                  )}
                 </div>
               );
-            }
-            // Full-width card
-            const { id, type } = row;
-            const target = WIDGET_TARGET[type];
+            });
+
+            const rowCls = [
+              styles.feedRow,
+              isPair ? styles.feedRowPair : '',
+            ].filter(Boolean).join(' ');
+
             return (
-              <div
-                key={id}
-                className={styles.mobileCard}
-                style={{ height: mobileHeight(type) }}
-              >
-                <WidgetContent type={type} />
-                {target && (
-                  <button
-                    className={styles.mobileCardNav}
-                    onClick={() => navigate(target)}
-                    title="Abrir"
-                  >
-                    <ArrowUpRight size={14} />
-                  </button>
-                )}
+              <div key={rowKey} className={rowCls}>
+                {cards}
               </div>
             );
           })}
-        </div>
 
-        {/* Bottom sheet edit mode (triggered from hamburger) */}
-        {dashboardEditMode && (
-          <div className={styles.editSheetBackdrop} onClick={() => setDashboardEditMode(false)}>
-            <div className={styles.editSheet} onClick={(e) => e.stopPropagation()}>
-              <div className={styles.editSheetHandle} />
-              <div className={styles.editSheetHeader}>
-                <span className={styles.editSheetTitle}>Personalizar</span>
+          {/* Empty placeholder row in edit mode — appended after every active
+              widget so the user always has somewhere to move things. Two
+              half-cells side by side; full-width widgets need both empty
+              cells in the same row, so placing one happens via the same row
+              regardless of which cell is tapped. */}
+          {dashboardEditMode && (() => {
+            const selWidget = selectedWidgetId ? widgets.find((w) => w.id === selectedWidgetId) : null;
+            const slotIsValid = selWidget !== null;  // any empty slot accepts any selected widget
+            const slotCls = (extra = '') => [
+              styles.mobileSlotEmpty,
+              selWidget ? (slotIsValid ? styles.mobileSlotValid : styles.mobileSlotInvalid) : '',
+              extra,
+            ].filter(Boolean).join(' ');
+            return (
+              <div className={`${styles.feedRow} ${styles.feedRowPair}`}>
                 <button
-                  className={styles.editSheetDone}
-                  onClick={() => setDashboardEditMode(false)}
+                  type="button"
+                  className={slotCls(styles.mobileCardHalf)}
+                  onClick={handleEmptySlotClick}
+                  disabled={!slotIsValid}
+                  aria-label="Mover el widget seleccionado aquí"
                 >
-                  <Check size={16} /> Listo
+                  <Plus size={18} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={slotCls(styles.mobileCardHalf)}
+                  onClick={handleEmptySlotClick}
+                  disabled={!slotIsValid}
+                  aria-label="Mover el widget seleccionado aquí"
+                >
+                  <Plus size={18} aria-hidden="true" />
                 </button>
               </div>
-              <p className={styles.editSheetHint}>
-                Arrastra <GripVertical size={12} /> sobre otro widget activo para ponerlos lado a lado (½). Tócalo de nuevo para separar.
-              </p>
-              <div className={styles.editSheetList}>
-                {ALL_WIDGET_TYPES.map((type) => {
-                  const Icon = WIDGET_ICONS[type];
-                  const active    = activeTypes.includes(type);
-                  const activeIdx = widgets.findIndex((w) => w.type === type);
-                  const isFirst   = activeIdx === 0;
-                  const isLast    = activeIdx === widgets.length - 1;
-                  const isHalf    = mobileHalfWidgets.includes(type);
-                  const isDragTarget = dropTargetType === type && draggingType !== type;
-                  return (
-                    <div
-                      key={type}
-                      className={[
-                        styles.editSheetRow,
-                        isDragTarget ? styles.editSheetRowDropTarget : '',
-                      ].join(' ')}
-                      draggable={active}
-                      onDragStart={() => { setDraggingType(type); setDropTargetType(null); }}
-                      onDragOver={(e) => { if (active && draggingType && draggingType !== type) { e.preventDefault(); setDropTargetType(type); } }}
-                      onDragLeave={() => setDropTargetType(null)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        if (draggingType && draggingType !== type && active && activeTypes.includes(draggingType)) {
-                          togglePair(draggingType, type);
-                        }
-                        setDraggingType(null);
-                        setDropTargetType(null);
-                      }}
-                      onDragEnd={() => { setDraggingType(null); setDropTargetType(null); }}
-                    >
-                      {/* Drag handle + reorder arrows */}
-                      <div className={styles.editSheetArrows}>
-                        <GripVertical size={14} className={styles.dragHandle} style={{ opacity: active ? 0.5 : 0.2, cursor: active ? 'grab' : 'default' }} />
-                        <button
-                          className={styles.arrowBtn}
-                          onClick={() => moveWidget(type, 'up')}
-                          disabled={!active || isFirst}
-                          aria-label="Mover arriba"
-                        >
-                          <ChevronUp size={14} />
-                        </button>
-                        <button
-                          className={styles.arrowBtn}
-                          onClick={() => moveWidget(type, 'down')}
-                          disabled={!active || isLast}
-                          aria-label="Mover abajo"
-                        >
-                          <ChevronDown size={14} />
-                        </button>
-                      </div>
-                      <button
-                        className={styles.editSheetRowContent}
-                        onClick={() => toggleMobileWidget(type)}
-                      >
-                        <div className={styles.editSheetRowLeft}>
-                          <Icon size={18} />
-                          <span>{WIDGET_LABELS[type]}</span>
-                          {isHalf && active && (
-                            <span className={styles.halfChip}>½</span>
-                          )}
-                        </div>
-                        <div className={`${styles.toggle} ${active ? styles.toggleOn : ''}`}>
-                          <div className={styles.toggleThumb} />
-                        </div>
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+            );
+          })()}
+
+          {/* Edit footer: Add widget + Reset, sits at the bottom of the feed
+              so it scrolls with content. The "Done" button is fixed-position
+              below this and is the only way to exit edit mode. */}
+          {dashboardEditMode && (
+            <div className={styles.editFooter}>
               <button
-                className={styles.editSheetReset}
-                onClick={() => { resetLayout(); }}
+                type="button"
+                className={styles.editAddBtn}
+                onClick={() => setMobileAddOpen((o) => !o)}
+                disabled={availableTypes.length === 0}
+                aria-expanded={mobileAddOpen}
               >
-                Restablecer por defecto
+                <Plus size={16} /> Agregar widget
+                {availableTypes.length > 0 && (
+                  <span className={styles.editAddCount}>{availableTypes.length}</span>
+                )}
+              </button>
+              {mobileAddOpen && availableTypes.length > 0 && (
+                <div className={styles.editAddList}>
+                  {availableTypes.map((t) => {
+                    const Icon = WIDGET_ICONS[t];
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        className={styles.editAddChip}
+                        onClick={() => { addWidget(t); setMobileAddOpen(false); }}
+                      >
+                        <Icon size={14} /> {WIDGET_LABELS[t]}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <button
+                type="button"
+                className={styles.editResetBtn}
+                onClick={() => { resetLayout(); setMobileAddOpen(false); }}
+              >
+                <RotateCcw size={14} /> Restablecer por defecto
               </button>
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* Floating Done button — portaled to document.body so position: fixed
+            falls through to viewport-relative. PageTransition.tsx applies
+            `transform: translateX(0)` to its wrapper after mount, which
+            establishes a containing block for fixed-positioned descendants
+            (per CSS spec: any non-none transform creates one). Without the
+            portal the button positions relative to PageTransition's div and
+            scrolls with .page-area's content. Same pattern the old
+            Personalizar bottom sheet used. */}
+        {dashboardEditMode && createPortal(
+          <button
+            type="button"
+            className={styles.floatingDoneBtn}
+            onClick={() => { setDashboardEditMode(false); setMobileAddOpen(false); }}
+            aria-label="Salir del modo edición"
+          >
+            <Check size={16} /> Listo
+          </button>,
+          document.body,
         )}
       </div>
     );
   }
 
   // ── Desktop view mode ─────────────────────────────────────────────────────
-  if (!desktopEditMode) {
+  if (!dashboardEditMode) {
     return (
       <div className={styles.root}>
         <div className={styles.header}>
           <span className={styles.greeting}>
             {activeMember ? greeting(activeMember.name) : 'HomeHub'}
           </span>
-          <button
-            className={styles.editToggle}
-            onClick={() => setDesktopEditMode(true)}
-            title="Customize dashboard"
-          >
-            <Pencil size={14} /> Edit
-          </button>
         </div>
 
         <div className={styles.gridWrap}>
@@ -502,18 +581,26 @@ export default function Dashboard() {
             {widgets.map(({ id, type }) => {
               const target = WIDGET_TARGET[type];
               return (
-                <div key={id} className={styles.gridCell}>
+                <div
+                  key={id}
+                  className={`${styles.gridCell} ${target ? styles.gridCellTappable : ''}`}
+                  {...(target ? {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-label': `Abrir ${WIDGET_LABELS[type]}`,
+                    onClick: (e) => handleCardClick(e, target),
+                    onKeyDown: (e) => handleCardKeyDown(e, target),
+                  } : {})}
+                >
                   <div className={styles.widgetInner}>
                     <WidgetContent type={type} />
                   </div>
                   {target && (
-                    <button
-                      className={styles.openBtn}
-                      onClick={() => navigate(target)}
-                      title="Open"
-                    >
-                      <ArrowUpRight size={14} />
-                    </button>
+                    <ChevronRight
+                      size={14}
+                      aria-hidden="true"
+                      className={styles.cardCaret}
+                    />
                   )}
                 </div>
               );
@@ -560,7 +647,7 @@ export default function Dashboard() {
           <button
             className="btn btn--primary btn--sm"
             style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-            onClick={() => { setDesktopEditMode(false); setAddOpen(false); }}
+            onClick={() => { setDashboardEditMode(false); setAddOpen(false); }}
           >
             <Check size={14} /> Done
           </button>

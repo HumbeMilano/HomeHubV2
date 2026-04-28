@@ -44,7 +44,7 @@ export default function FinSummaryWidget() {
       <div className={styles.divider} />
 
       <div className={styles.progressHeader}>
-        <span className={styles.progressLabel}>Pagado {Math.round(paidPct)}%</span>
+        <span className={styles.progressLabel}>Pagado {fmt(paidAmount)}</span>
         <span className={styles.progressAmt}>{fmt(paidAmount)} / {fmt(totalSpending)}</span>
       </div>
       <div className={styles.progressTrack}>

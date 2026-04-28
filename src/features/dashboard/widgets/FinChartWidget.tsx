@@ -123,9 +123,7 @@ export default function FinChartWidget() {
             <div key={d.name} className={styles.legendItem}>
               <span className={styles.legendDot} style={{ background: COLORS[i % COLORS.length] }} />
               <span className={styles.legendName}>{d.name}</span>
-              <span className={styles.legendPct}>
-                {total > 0 ? ((d.value / total) * 100).toFixed(1) : '0.0'}%
-              </span>
+              <span className={styles.legendPct}>{fmt(d.value)}</span>
             </div>
           ))}
           {data.length === 0 && <p className={styles.empty}>Sin datos</p>}

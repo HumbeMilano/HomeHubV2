@@ -24,24 +24,6 @@
   color: var(--text);
 }
 
-.editToggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-3);
-  padding: 6px 12px;
-  border-radius: var(--r-full);
-  background: transparent;
-  transition: background var(--transition), color var(--transition);
-}
-
-.editToggle:hover {
-  background: var(--bg-3);
-  color: var(--text-2);
-}
-
 /* ── Desktop edit mode actions ───────────────────────────────────────────── */
 .actions {
   display: flex;
@@ -102,26 +84,34 @@
   height: 100%;
 }
 
-.openBtn {
-  position: absolute;
-  top: var(--sp-2);
-  right: var(--sp-2);
-  width: 28px;
-  height: 28px;
-  border-radius: var(--r-full);
-  background: rgba(0, 0, 0, 0.20);
-  border: none;
+/* Whole-card tap on widgets that have a target page (WIDGET_TARGET).
+   Press feedback matches iOS card-press elsewhere; keyboard focus ring is the
+   browser default for role="button" + tabIndex=0. */
+.gridCellTappable,
+.mobileCardTappable {
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.75);
-  opacity: 0;
-  transition: opacity var(--transition);
-  z-index: 2;
 }
 
-.gridCell:hover .openBtn { opacity: 1; }
+.gridCellTappable:active,
+.mobileCardTappable:active {
+  transform: scale(0.985);
+  transition: transform 80ms ease;
+}
+
+/* Subtle persistent caret on tablet/desktop only — mobile uses press-scale
+   feedback alone since the touch metaphor is well established. */
+.cardCaret {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  color: var(--text-3);
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .cardCaret { display: none; }
+}
 
 .widgetInner {
   width: 100%;
@@ -134,12 +124,14 @@
    MOBILE FEED — diseño nuevo desde cero
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* Root de mobile: scroll completo de la pantalla */
+/* Root de mobile: scroll completo de la pantalla.
+   Padding-top = 64px fixed header + var(--sp-4) (16px) buffer, token-driven so
+   any future header-height change moves with --sp-* tokens. */
 .mobileRoot {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding: 80px 16px 32px; /* 80px = 64px header fijo + 16px espacio visual */
+  padding: calc(64px + var(--sp-4)) var(--sp-4) var(--sp-8);
   box-sizing: border-box;
   gap: 0;
 }
@@ -149,11 +141,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: 20px;
+  margin-bottom: var(--sp-3);
 }
 
 .mobileGreetingText {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--text);
@@ -161,7 +153,7 @@
 }
 
 .mobileDate {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-2);
   font-weight: 400;
   text-transform: capitalize;
@@ -174,13 +166,9 @@
   gap: 12px;
 }
 
-/* Fila para widgets de media anchura (clock + weather) */
-.mobileRow {
-  display: flex;
-  gap: 12px;
-}
-
-/* Tarjeta base */
+/* Tarjeta base — content-adaptive height capped at the shared widget max.
+   `:first-child` rule below makes the widget root fill remaining space and
+   surrender its own `height: 100%` constraint to this bounding box. */
 .mobileCard {
   background: var(--bg-2);
   border-radius: 18px;
@@ -188,9 +176,28 @@
   width: 100%;
   position: relative;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
-  container-type: size;
+  /* inline-size (not size): block-size containment requires explicit height,
+     which we removed in #3+#4 to enable content-adaptive cards. Width-based
+     @container queries still work; height-based queries inside widgets
+     (compact-mode rules in Clock/Fin* widgets) are inert on mobile, which is
+     acceptable since cards now naturally size to their content. Desktop's
+     .widgetInner keeps `container-type: size` because it has explicit
+     height: 100% from the .gridCell sized by react-grid-layout. */
+  container-type: inline-size;
   container-name: widget;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: var(--max-widget-height);
+}
+
+/* Neutralize widgets' internal `height: 100%` so the card sizes to content;
+   `:first-child` keeps overlays (corner caret, nav button) untouched. */
+.mobileCard > *:first-child {
+  height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Media anchura (clock, weather) */
@@ -199,231 +206,252 @@
   min-width: 0;
 }
 
-/* Botón de navegación dentro de la card */
-.mobileCardNav {
+/* ─── Mobile feed: row container + edit chrome + edit footer ──────────────
+   Each card row in `.mobileFeed` is wrapped in a `.feedRow` so pointer
+   handlers attach to a stable element (whether the row holds 1 full-width
+   card or a pair). The wrapper is layout-transparent in non-edit mode —
+   .feedRow has no border/padding, so the visual is identical to the cards
+   sitting directly in the feed. */
+.feedRow {
+  display: block;
+}
+
+.feedRowPair {
+  display: flex;
+  gap: 12px;
+}
+
+/* Edit chrome — small floating bar on each card while dashboardEditMode is
+   on. Absolutely positioned so it doesn't disturb the card's flex layout
+   (which neutralizes the widget's height: 100% via `:first-child`). */
+.editChrome {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+  background: var(--bg-glass);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 4px;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+
+.editChromeBtn {
   width: 26px;
   height: 26px;
-  border-radius: 50%;
-  background: rgba(120, 120, 128, 0.25);
-  border: none;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-2);
-  z-index: 2;
-  transition: background var(--transition);
-}
-
-.mobileCardNav:active { background: rgba(120, 120, 128, 0.45); }
-
-/* ─── Bottom Sheet de edición ──────────────────────────────────────────── */
-
-.editSheetBackdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.50);
-  z-index: var(--z-modal);
-  display: flex;
-  align-items: flex-end;
-  padding: 0 8px 12px;
-}
-
-.editSheet {
-  background: var(--bg-2);
-  border-radius: 22px;
-  width: 100%;
-  max-height: 62vh;
-  display: flex;
-  flex-direction: column;
-  padding-bottom: env(safe-area-inset-bottom, 12px);
-  overflow: hidden;
-}
-
-.editSheetHandle {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--bg-4);
-  margin: 12px auto 0;
-  flex-shrink: 0;
-}
-
-.editSheetHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px 12px;
-  flex-shrink: 0;
-  border-bottom: 0.5px solid var(--border);
-}
-
-.editSheetTitle {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.editSheetDone {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--accent);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.editSheetList {
-  overflow-y: auto;
-  flex: 1;
-  padding: 8px 0;
-}
-
-.editSheetRow {
-  display: flex;
-  align-items: center;
-  border-bottom: 0.5px solid var(--border);
-}
-
-.editSheetRow:last-child { border-bottom: none; }
-
-.editSheetArrows {
-  display: flex;
-  flex-direction: column;
-  padding: 4px 0 4px 12px;
-  gap: 0;
-  flex-shrink: 0;
-}
-
-.arrowBtn {
-  width: 28px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: var(--text-2);
   border-radius: var(--r-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
   transition: background var(--transition), color var(--transition);
 }
 
-.arrowBtn:disabled {
+.editChromeBtn:active { background: var(--bg-3); }
+
+.editChromeBtnActive {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.editChromeBtnDanger { color: var(--danger); }
+.editChromeBtnDanger:active { background: rgba(255, 69, 58, 0.14); }
+
+/* Visual hint that a card is in edit mode: subtle accent ring + freeze the
+   widget's interactive content (no pointer-events) so an embedded button
+   inside the widget can't fire while the user is reordering. */
+.mobileCardEditing {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -1.5px;
+  cursor: pointer;
+  transition: outline var(--transition), transform var(--transition);
+}
+
+.mobileCardEditing > *:first-child {
+  pointer-events: none;
+}
+
+/* Selected widget — accent ring + slight scale-up, sits above siblings. */
+.mobileCardSelected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  transform: scale(1.02);
+  z-index: 1;
+}
+
+/* Width-mismatch shake: brief horizontal jiggle when the user attempts to
+   swap widgets of incompatible widths. Selection is preserved; the shake
+   plays on the rejected target so the user understands what happened. */
+.mobileCardShake {
+  animation: cardShake 320ms ease;
+}
+
+@keyframes cardShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+/* Empty slot placeholder — visible only in edit mode, appended after every
+   active widget so there's always somewhere to place a selected one. */
+.mobileSlotEmpty {
+  background: var(--bg-3);
+  border: 1.5px dashed var(--border);
+  border-radius: 18px;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  font-size: 13px;
+  cursor: default;
+  transition: background var(--transition), border-color var(--transition),
+              color var(--transition);
+}
+
+/* Highlighted when a widget is selected and this slot accepts it. Subtle
+   pulse so the user can see drop targets without anything jarring. */
+.mobileSlotValid {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  cursor: pointer;
+  animation: slotPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes slotPulse {
+  0%, 100% { background: var(--accent-dim); }
+  50%      { background: rgba(10, 132, 255, 0.18); }
+}
+
+/* Dimmed when a slot can't receive the current selection (placeholder for
+   future per-slot validity rules; right now any empty slot is valid for any
+   widget so this class is reserved). */
+.mobileSlotInvalid {
+  opacity: 0.45;
+}
+
+/* Edit footer — Add widget + Reset, scrolls with the feed. */
+.editFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: var(--sp-2);
+  padding-bottom: 80px; /* space for the floating Done button */
+}
+
+.editAddBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: var(--bg-2);
+  border: 0.5px dashed var(--border);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.editAddBtn:active { background: var(--bg-3); }
+
+.editAddBtn:disabled {
   color: var(--text-3);
   cursor: default;
+  border-style: solid;
 }
 
-.arrowBtn:not(:disabled):active { background: var(--bg-3); }
-
-.editSheetRowContent {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex: 1;
-  padding: 14px 20px 14px 8px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background var(--transition);
-}
-
-.editSheetRowContent:active { background: var(--bg-3); }
-
-.editSheetRowLeft {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 500;
-}
-
-/* iOS-style toggle switch */
-.toggle {
-  width: 51px;
-  height: 31px;
-  border-radius: 16px;
-  background: var(--bg-4);
-  position: relative;
-  transition: background 0.25s ease;
-  flex-shrink: 0;
-}
-
-.toggleOn {
-  background: var(--success);
-}
-
-.toggleThumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 25px;
-  height: 25px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.toggleOn .toggleThumb {
-  transform: translateX(20px);
-}
-
-.editSheetReset {
-  margin: 12px 20px 20px;
-  padding: 13px;
-  background: var(--bg-3);
-  border: none;
-  border-radius: var(--r-lg);
-  color: var(--danger);
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  width: calc(100% - 40px);
-  transition: background var(--transition);
-}
-
-.editSheetReset:active { background: var(--bg-4); }
-
-.editSheetHint {
-  font-size: 12px;
-  color: var(--text-3);
-  padding: 0 20px 8px;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.editSheetRowDropTarget {
-  background: rgba(10, 132, 255, 0.10);
-  border-radius: var(--r-md);
-  outline: 1.5px solid var(--accent);
-}
-
-.dragHandle {
-  flex-shrink: 0;
-  touch-action: none;
-}
-
-.halfChip {
+.editAddCount {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--accent);
-  background: rgba(10, 132, 255, 0.14);
+  background: var(--accent-dim);
   border-radius: var(--r-full);
-  padding: 1px 6px;
+  padding: 1px 7px;
+  margin-left: 4px;
   line-height: 1;
 }
+
+.editAddList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.editAddChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--r-full);
+  background: var(--bg-2);
+  border: 0.5px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.editAddChip:active { background: var(--bg-3); }
+
+.editResetBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: transparent;
+  border: 0.5px solid var(--border);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.editResetBtn:active { background: rgba(255, 69, 58, 0.10); }
+
+/* Floating Done — fixed-position pill at the bottom of the viewport. The
+   parent `.editFooter` has padding-bottom to ensure the last footer row
+   never sits underneath this button. */
+.floatingDoneBtn {
+  position: fixed;
+  left: 50%;
+  bottom: max(env(safe-area-inset-bottom, 12px), 16px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  border: none;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-modal);
+  transition: transform 80ms ease, opacity var(--transition);
+}
+
+.floatingDoneBtn:active { transform: translateX(-50%) scale(0.96); }
 
 /* ── Desktop responsive ──────────────────────────────────────────────────── */
 @media (min-width: 769px) and (max-width: 1023px) {

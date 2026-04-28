@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Photo } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useAppStore } from '../../store/appStore';
+import styles from './PhotoSlideshow.module.css';
 
 // Fallback gradient backgrounds shown when no photos are uploaded
 const GRADIENTS = [
@@ -23,6 +24,10 @@ export default function PhotoSlideshow({ interval: intervalProp }: Props) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [index, setIndex] = useState(0);
   const [fade, setFade] = useState(true);
+  const [fit, setFit] = useState<'cover' | 'contain'>('cover');
+  const [viewportLandscape, setViewportLandscape] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth >= window.innerHeight
+  );
 
   // Load photos from Supabase on mount
   useEffect(() => {
@@ -48,21 +53,68 @@ export default function PhotoSlideshow({ interval: intervalProp }: Props) {
     return () => clearInterval(timer);
   }, [interval, photos.length]);
 
-  const background = photos.length > 0
-    ? `url(${photos[index % photos.length].url}) center/cover no-repeat`
-    : GRADIENTS[index % GRADIENTS.length];
+  // Track viewport orientation (resize / device rotation)
+  useEffect(() => {
+    let rafId = 0;
+    const onResize = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setViewportLandscape(window.innerWidth >= window.innerHeight);
+      });
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
+  const currentPhoto = photos.length > 0 ? photos[index % photos.length] : null;
+
+  // Compare photo and viewport orientation to decide cover-vs-contain
+  useEffect(() => {
+    if (!currentPhoto) return;
+    const img = new Image();
+    img.onload = () => {
+      const photoLandscape = img.naturalWidth >= img.naturalHeight;
+      setFit(photoLandscape === viewportLandscape ? 'cover' : 'contain');
+    };
+    img.src = currentPhoto.url;
+  }, [currentPhoto, viewportLandscape]);
+
+  // Gradient fallback when no photos uploaded
+  if (!currentPhoto) {
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: GRADIENTS[index % GRADIENTS.length],
+          transition: 'opacity 600ms ease',
+          opacity: fade ? 1 : 0,
+          zIndex: 0,
+        }}
+        aria-hidden="true"
+      />
+    );
+  }
 
   return (
     <div
+      className={styles.slide}
       style={{
-        position: 'absolute',
-        inset: 0,
-        background,
+        zIndex: 0,
         transition: 'opacity 600ms ease',
         opacity: fade ? 1 : 0,
-        zIndex: 0,
       }}
       aria-hidden="true"
-    />
+    >
+      {/* Blurred fill — only rendered when needed to avoid the GPU cost of
+          filter: blur(40px) when the photo already covers the viewport. */}
+      {fit === 'contain' && (
+        <div className={styles.blurFill} style={{ backgroundImage: `url(${currentPhoto.url})` }} />
+      )}
+      <img className={styles.photo} src={currentPhoto.url} alt="" data-fit={fit} />
+    </div>
   );
 }

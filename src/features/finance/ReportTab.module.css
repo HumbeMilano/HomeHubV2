@@ -15,6 +15,7 @@
 
 .controlGroup {
   display: flex;
+  flex-wrap: wrap;
   gap: 3px;
   background: var(--bg-3);
   border-radius: var(--r-full);

@@ -7,14 +7,13 @@ import { useMembersStore } from '../../store/membersStore';
 import { fmt, monthKey } from '../../lib/utils';
 import styles from './ReportTab.module.css';
 
-type Range  = 'current' | 'prev' | '3m' | '6m';
+type Range  = 'current' | 'prev' | '3m';
 type Mode   = 'category' | 'person' | 'account';
 
 const RANGE_LABELS: Record<Range,  string> = {
   current: 'Current month',
   prev:    'Previous month',
   '3m':    'Last 3 months',
-  '6m':    'Last 6 months',
 };
 const MODE_LABELS: Record<Mode, string> = {
   category: 'By category',
@@ -42,7 +41,7 @@ export default function ReportTab() {
   // Build list of months in range
   const months = useMemo(() => {
     const ref = new Date(workYear, workMonth - 1, 1);
-    const count = range === 'current' ? 1 : range === 'prev' ? 1 : range === '3m' ? 3 : 6;
+    const count = range === 'current' ? 1 : range === 'prev' ? 1 : 3;
     const offset = range === 'prev' ? 1 : 0;
     return Array.from({ length: count }, (_, i) => {
       const d = subMonths(ref, offset + (count - 1 - i));
@@ -85,8 +84,7 @@ export default function ReportTab() {
   const totalBills  = rangeBills.reduce((s, rb) => s + rb.amount, 0);
   const totalIncome = rangeIncome.reduce((s, i) => s + i.amount, 0);
   const balance     = totalIncome - totalBills;
-  const paidCount   = rangeBills.filter((rb) => rb.status === 'paid').length;
-  const paidPct     = rangeBills.length > 0 ? Math.round((paidCount / rangeBills.length) * 100) : 0;
+  const paidAmount  = rangeBills.filter((rb) => rb.status === 'paid').reduce((s, rb) => s + rb.amount, 0);
 
   // Build pie chart data
   const pieData = useMemo(() => {
@@ -238,8 +236,8 @@ export default function ReportTab() {
           <div className={styles.summaryValue} style={{ color: balance >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmt(balance)}</div>
         </div>
         <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>% Paid</div>
-          <div className={styles.summaryValue} style={{ color: 'var(--accent)' }}>{paidPct}%</div>
+          <div className={styles.summaryLabel}>Paid</div>
+          <div className={styles.summaryValue} style={{ color: 'var(--accent)' }}>{fmt(paidAmount)}</div>
         </div>
       </div>
 
