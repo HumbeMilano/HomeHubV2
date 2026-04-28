@@ -182,7 +182,14 @@
   width: 100%;
   position: relative;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
-  container-type: size;
+  /* inline-size (not size): block-size containment requires explicit height,
+     which we removed in #3+#4 to enable content-adaptive cards. Width-based
+     @container queries still work; height-based queries inside widgets
+     (compact-mode rules in Clock/Fin* widgets) are inert on mobile, which is
+     acceptable since cards now naturally size to their content. Desktop's
+     .widgetInner keeps `container-type: size` because it has explicit
+     height: 100% from the .gridCell sized by react-grid-layout. */
+  container-type: inline-size;
   container-name: widget;
   flex-shrink: 0;
   display: flex;
