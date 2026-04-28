@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import GridLayout, { type LayoutItem } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import {
@@ -672,10 +673,15 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Floating Done button — fixed above the page-area scroll, visible
-            during edit mode. The single way to exit edit mode (matching
-            desktop's "Done" button in edit-mode actions). */}
-        {dashboardEditMode && (
+        {/* Floating Done button — portaled to document.body so position: fixed
+            falls through to viewport-relative. PageTransition.tsx applies
+            `transform: translateX(0)` to its wrapper after mount, which
+            establishes a containing block for fixed-positioned descendants
+            (per CSS spec: any non-none transform creates one). Without the
+            portal the button positions relative to PageTransition's div and
+            scrolls with .page-area's content. Same pattern the old
+            Personalizar bottom sheet used. */}
+        {dashboardEditMode && createPortal(
           <button
             type="button"
             className={styles.floatingDoneBtn}
@@ -683,7 +689,8 @@ export default function Dashboard() {
             aria-label="Salir del modo edición"
           >
             <Check size={16} /> Listo
-          </button>
+          </button>,
+          document.body,
         )}
       </div>
     );
