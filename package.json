@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:lockscreen": "vite build --config vite.config.lockscreen.ts",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -38,3 +39,4 @@
     "vite": "^8.0.4"
   }
 }
+
